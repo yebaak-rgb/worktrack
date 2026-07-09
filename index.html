@@ -141,7 +141,7 @@ ul.task-list li:last-child{border-bottom:none;}
   padding:10px 14px;font-size:13.5px;margin-bottom:12px;}
 
 /* ===== 주간 ===== */
-.week-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;}
+.week-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
 .week-col{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:170px;display:flex;flex-direction:column;}
 .week-col.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
 .week-col.off{background:#fbf6ec;}
@@ -395,10 +395,11 @@ audio{width:100%;max-width:420px;height:38px;}
 
     <!-- 거래처 -->
     <section id="view-contact" class="hidden">
-      <div class="row" style="margin-bottom:14px">
+      <div class="row" style="margin-bottom:10px">
         <button class="btn" onclick="openContactModal()">＋ 거래처 추가</button>
         <input type="search" id="contactSearch" placeholder="거래처·담당자 검색" style="max-width:240px" oninput="renderContacts()">
       </div>
+      <div class="memo-tabs" id="contactCatTabs" style="max-width:520px;margin-bottom:12px"></div>
       <div class="contact-grid" id="contactGrid"></div>
     </section>
   </main>
@@ -846,12 +847,13 @@ function renderDay() {
 function moveWeek(n) { curWeekStart = addDays(curWeekStart, n * 7); renderWeek(); }
 function goThisWeek() { curWeekStart = weekStart(todayStr()); renderWeek(); }
 function renderWeek() {
-  const end = addDays(curWeekStart, 6);
+  const end = addDays(curWeekStart, 5); // 월~토 표시
   document.getElementById('weekTitle').textContent = `${fmtKo(curWeekStart)} ~ ${fmtKo(end)}`;
   const grid = document.getElementById('weekGrid');
   grid.innerHTML = '';
   for (let i = 0; i < 7; i++) {
     const d = addDays(curWeekStart, i);
+    if (dowOf(d) === 0) continue; // 주간 계획에선 일요일 숨김 (월간 캘린더에는 표시)
     const col = document.createElement('div');
     const off = isDayOff(d);
     col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
@@ -1245,31 +1247,52 @@ async function delOff(id) {
 }
 
 /* ================= 거래처 ================= */
+let contactCatFilter = '전체';
+function contactCats() {
+  return [...new Set(state.contacts.map(c => (c.category || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+}
+function setContactCat(cat) { contactCatFilter = cat; renderContacts(); }
 function renderContacts() {
   const grid = document.getElementById('contactGrid');
   if (!grid) return;
+  // 카테고리 필터 탭
+  const tabs = document.getElementById('contactCatTabs');
+  const cats = contactCats();
+  if (contactCatFilter !== '전체' && !cats.includes(contactCatFilter)) contactCatFilter = '전체';
+  tabs.innerHTML = ['전체', ...cats].map(c =>
+    `<button class="${contactCatFilter === c ? 'on' : ''}" onclick="setContactCat('${esc(c)}')">${esc(c)}</button>`).join('');
+  tabs.style.display = cats.length ? 'flex' : 'none';
+
   const q = (document.getElementById('contactSearch')?.value || '').trim().toLowerCase();
-  const list = state.contacts.filter(c => !q ||
-    [c.company, c.person, c.phone, c.email, c.note].some(v => (v || '').toLowerCase().includes(q)));
+  const list = state.contacts.filter(c =>
+    (contactCatFilter === '전체' || (c.category || '').trim() === contactCatFilter) &&
+    (!q || [c.company, c.person, c.phone, c.email, c.note, c.category].some(v => (v || '').toLowerCase().includes(q))));
   grid.innerHTML = list.length ? '' : '<div class="muted">등록된 거래처가 없어요. "거래처 추가"로 시작하세요.</div>';
   for (const c of list) {
     const card = document.createElement('div');
     card.className = 'contact-card';
     card.innerHTML = `
-      <h4>🏢 ${esc(c.company)}</h4>
+      <h4>🏢 ${esc(c.company)} ${c.category ? `<span class="chip cat-w">${esc(c.category)}</span>` : ''}</h4>
       ${c.person ? `<div class="person">👤 ${esc(c.person)}</div>` : ''}
       ${c.phone ? `<div class="line">📞 <a href="tel:${esc(c.phone)}" onclick="event.stopPropagation()">${esc(c.phone)}</a></div>` : ''}
       ${c.email ? `<div class="line">✉️ <a href="mailto:${esc(c.email)}" onclick="event.stopPropagation()">${esc(c.email)}</a></div>` : ''}
-      ${c.note ? `<div class="line">📝 ${esc(c.note)}</div>` : ''}`;
+      ${c.note ? `<div class="line">📝 ${esc(c.note)}</div>` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:8px">
+        <button class="btn ghost sm" onclick="event.stopPropagation();openContactModal('${c.id}')">✏️ 수정</button>
+      </div>`;
     card.onclick = () => openContactModal(c.id);
     grid.appendChild(card);
   }
 }
 function openContactModal(id) {
   const c = id ? state.contacts.find(x => x.id === id) : null;
+  const catOptions = contactCats().map(x => `<option value="${esc(x)}">`).join('');
   openModal(`
     <h3>${c ? '거래처 수정' : '거래처 추가'}</h3>
     <label>거래처명 *</label><input id="ctCompany" value="${c ? esc(c.company) : ''}" placeholder="예: (주)미소기공">
+    <label>카테고리 (구분)</label>
+    <input id="ctCategory" list="ctCatList" value="${c ? esc(c.category || '') : ''}" placeholder="예: 광고, 인쇄, 관공서, 자재">
+    <datalist id="ctCatList">${catOptions}</datalist>
     <label>담당자</label><input id="ctPerson" value="${c ? esc(c.person || '') : ''}" placeholder="예: 김담당 과장">
     <label>연락처</label><input id="ctPhone" type="tel" value="${c ? esc(c.phone || '') : ''}" placeholder="예: 010-1234-5678">
     <label>이메일</label><input id="ctEmail" type="email" value="${c ? esc(c.email || '') : ''}" placeholder="예: contact@company.com">
@@ -1285,6 +1308,7 @@ async function saveContact(id) {
   if (!company) return toast('거래처명을 입력하세요.');
   const row = {
     user_id: user.id, company,
+    category: document.getElementById('ctCategory').value.trim(),
     person: document.getElementById('ctPerson').value.trim(),
     phone: document.getElementById('ctPhone').value.trim(),
     email: document.getElementById('ctEmail').value.trim(),
@@ -1293,6 +1317,13 @@ async function saveContact(id) {
   let error, data;
   if (id) ({ error } = await sb.from('contacts').update(row).eq('id', id));
   else ({ data, error } = await sb.from('contacts').insert(row).select().single());
+  // DB에 category 컬럼이 아직 없으면 카테고리 없이 재시도 (마이그레이션 전 호환)
+  if (error && /category/i.test(error.message)) {
+    delete row.category;
+    if (id) ({ error } = await sb.from('contacts').update(row).eq('id', id));
+    else ({ data, error } = await sb.from('contacts').insert(row).select().single());
+    if (!error) toast('저장됐어요. (카테고리는 DB 준비 후 저장됩니다)');
+  }
   if (error) return toast('저장 실패: ' + error.message);
   if (id) Object.assign(state.contacts.find(x => x.id === id), row);
   else state.contacts.push(data);
