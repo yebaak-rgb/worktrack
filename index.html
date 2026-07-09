@@ -134,6 +134,9 @@ ul.task-list li:last-child{border-bottom:none;}
 .add-inline{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
 .add-inline input[type=text]{flex:1;min-width:150px;}
 .add-inline select{width:auto;}
+.due-inline{display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:10px;
+  padding:0 8px;background:#fff;font-size:14px;cursor:pointer;}
+.due-inline input[type=date]{border:none;padding:8px 2px;width:130px;font-size:13px;}
 .day-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .day-nav h2{font-size:18px;margin:0;}
 .nav-btn{border:1px solid var(--line);background:#fff;border-radius:9px;width:34px;height:34px;font-size:15px;cursor:pointer;}
@@ -318,6 +321,7 @@ audio{width:100%;max-width:420px;height:38px;}
           <ul class="task-list" id="dashTasks"></ul>
           <div class="add-inline">
             <input type="text" id="dashNewTask" placeholder="오늘 할 일 추가 (Enter)" onkeydown="if(event.key==='Enter')addTaskQuick('dashNewTask')">
+            <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="dashNewDue"></label>
             <button class="btn sm" onclick="addTaskQuick('dashNewTask')">추가</button>
           </div>
         </div>
@@ -354,6 +358,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <div class="add-inline">
           <input type="text" id="newTaskTitle" placeholder="할 일 입력 후 Enter" onkeydown="if(event.key==='Enter')addTask()">
           <select id="newTaskPri"><option value="높음">🔴 높음</option><option value="중간" selected>🟡 중간</option><option value="낮음">🟢 낮음</option></select>
+          <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="newTaskDue"></label>
           <button class="btn" onclick="addTask()">추가</button>
         </div>
       </div>
@@ -679,14 +684,16 @@ async function createTask(title, ymd, priority, dueDate) {
 async function addTask() {
   const input = document.getElementById('newTaskTitle');
   const title = input.value.trim(); if (!title) return;
-  await createTask(title, curDate, document.getElementById('newTaskPri').value);
-  input.value = ''; input.focus();
+  const due = document.getElementById('newTaskDue');
+  await createTask(title, curDate, document.getElementById('newTaskPri').value, due.value || null);
+  input.value = ''; due.value = ''; input.focus();
 }
 async function addTaskQuick(inputId) {
   const input = document.getElementById(inputId);
   const title = input.value.trim(); if (!title) return;
-  await createTask(title, todayStr(), '중간');
-  input.value = ''; input.focus();
+  const due = document.getElementById('dashNewDue');
+  await createTask(title, todayStr(), '중간', due ? (due.value || null) : null);
+  input.value = ''; if (due) due.value = ''; input.focus();
 }
 async function addTaskOn(ymd) {
   const title = (prompt(`${fmtKo(ymd)} 할 일 입력`) || '').trim();
@@ -757,6 +764,7 @@ function taskLi(t) {
     ${t.carried_over ? '<span class="chip carry">이월</span>' : ''}
     ${ddayChip(t.due_date)}
     ${priChip(t.priority)}
+    <button class="icon-btn" onclick="openTaskModal('${t.id}')" title="수정 (마감기한·날짜·비고)">✏️</button>
     <button class="icon-btn" onclick="delTask('${t.id}')" title="삭제">✕</button>`;
   return li;
 }
