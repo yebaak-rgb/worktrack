@@ -99,7 +99,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .dday.over{background:#fdecec;color:var(--danger);}
 .dday.soon{background:#fff4e0;color:#b97d0e;}
 .dday.later{background:#eef1f6;color:var(--sub);}
-.wk-mini{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+.wk-mini{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;}
 .wk-mini .cellm{border:1px solid var(--line);border-radius:9px;padding:7px 6px;text-align:left;font-size:12px;cursor:pointer;min-height:110px;}
 .wk-mini .cellm:hover{border-color:var(--accent);}
 .wk-mini .cellm.today{border-color:var(--accent);background:var(--accent-soft);}
@@ -110,7 +110,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
   margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wk-mini .ti.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
 .wk-mini .cellm.today .ti{background:#fff;}
-@media(max-width:900px){.wk-mini{grid-template-columns:repeat(7,minmax(90px,1fr));overflow-x:auto;}}
+@media(max-width:900px){.wk-mini{grid-template-columns:repeat(5,minmax(90px,1fr));overflow-x:auto;}}
 .routine-line{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--line);font-size:13.5px;}
 .routine-line:last-child{border-bottom:none;}
 
@@ -796,6 +796,7 @@ function renderDash() {
   const ws = weekStart(today);
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i);
+    if (dowOf(d) === 6 || dowOf(d) === 0) continue; // 대시보드에선 토/일 숨김
     const ts = tasksOf(d).sort((a, b) => (a.done - b.done) || priOrder(a.priority) - priOrder(b.priority));
     const dn = ts.filter(t => t.done).length;
     const cell = document.createElement('div');
