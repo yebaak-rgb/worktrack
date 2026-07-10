@@ -79,8 +79,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .memo-panel .add-box input{background:#fff;font-size:14px;}
 .memo-card{background:#fffbe8;border:1px solid #f0e6bb;border-radius:12px;padding:11px 12px;}
 .memo-card.pinned{background:#fff3f0;border-color:#f3cfc4;}
-.memo-card .content{white-space:pre-wrap;word-break:break-word;font-size:13.5px;cursor:pointer;}
-.memo-card .meta{font-size:11px;color:var(--sub);margin-top:7px;display:flex;justify-content:space-between;align-items:center;}
+/* 메모 아코디언: 접힘=첫 줄만, 펼침=전체 */
+.memo-card .m-row{display:flex;align-items:flex-start;gap:6px;cursor:pointer;}
+.memo-card .m-caret{color:var(--sub);font-size:10px;margin-top:4px;flex:none;transition:transform .15s;}
+.memo-card.expanded .m-caret{transform:rotate(90deg);}
+.memo-card .content{flex:1;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.memo-card.expanded .content{white-space:pre-wrap;word-break:break-word;}
+.memo-card .meta{font-size:11px;color:var(--sub);margin-top:7px;display:none;justify-content:space-between;align-items:center;}
+.memo-card.expanded .meta{display:flex;}
 .icon-btn{border:none;background:transparent;color:var(--sub);cursor:pointer;font-size:15px;padding:3px;}
 .icon-btn:hover{color:var(--text);}
 #memoToggle{display:none;position:fixed;right:18px;bottom:86px;z-index:60;width:52px;height:52px;border-radius:50%;
@@ -1002,6 +1008,7 @@ async function addMemo() {
   if (error) return toast('메모 추가 실패: ' + error.message);
   state.memos.unshift(data); input.value = ''; renderMemos();
 }
+function toggleMemoExpand(el) { el.closest('.memo-card').classList.toggle('expanded'); }
 function renderMemos() {
   const grid = document.getElementById('memoList');
   const filtered = state.memos.filter(m => memoFilter === '전체' || (m.category || '개인') === memoFilter);
@@ -1011,7 +1018,7 @@ function renderMemos() {
     const card = document.createElement('div');
     card.className = 'memo-card' + (m.pinned ? ' pinned' : '');
     card.innerHTML = `
-      <div class="content" onclick="editMemo('${m.id}')">${esc(m.content)}</div>
+      <div class="m-row" onclick="toggleMemoExpand(this)"><span class="m-caret">▸</span><div class="content">${esc(m.content)}</div></div>
       <div class="meta">
         <span>${catChip(m.category || '개인')} ${(m.updated_at || '').slice(5, 10).replace('-', '/')}</span>
         <span>
