@@ -131,6 +131,10 @@ ul.task-list li:last-child{border-bottom:none;}
 .chip.carry{background:var(--accent-soft);color:var(--accent);}
 .chip.routine{background:#eefafd;color:#0e7f9c;}
 .chip.meet{background:#f1e9ff;color:#7c4dcc;cursor:pointer;}
+.chip.event{background:#e7f0ff;color:#2f6fdb;}
+.event-inline{display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:10px;
+  padding:0 10px;background:#fff;font-size:13.5px;font-weight:600;color:var(--sub);cursor:pointer;white-space:nowrap;}
+.event-inline input[type=checkbox]{cursor:pointer;margin:0;}
 .add-inline{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
 .add-inline input[type=text]{flex:1;min-width:150px;}
 .add-inline select{width:auto;}
@@ -191,6 +195,8 @@ audio{width:100%;max-width:420px;height:38px;}
 .modal{background:#fff;border-radius:18px;width:100%;max-width:560px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,.2);}
 .modal h3{margin:0 0 16px;font-size:17px;}
 .modal label{font-size:13px;font-weight:600;color:var(--sub);display:block;margin:12px 0 5px;}
+.modal label.event-check{display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--text);}
+.modal label.event-check input{margin:0;}
 .modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;flex-wrap:wrap;}
 .modal .foot .left{margin-right:auto;}
 .task-pick{max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:6px;}
@@ -359,6 +365,7 @@ audio{width:100%;max-width:420px;height:38px;}
           <input type="text" id="newTaskTitle" placeholder="할 일 입력 후 Enter" onkeydown="if(event.key==='Enter')addTask()">
           <select id="newTaskPri"><option value="높음">🔴 높음</option><option value="중간" selected>🟡 중간</option><option value="낮음">🟢 낮음</option></select>
           <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="newTaskDue"></label>
+          <label class="event-inline" title="일정으로 등록 (휴무일에도 이 날짜에 고정, 자동이월 안 됨)"><input type="checkbox" id="newTaskEvent">📅 일정</label>
           <button class="btn" onclick="addTask()">추가</button>
         </div>
       </div>
@@ -573,7 +580,8 @@ async function loadAll() {
 }
 async function rolloverTasks() {
   const target = nextWorkday(todayStr());
-  const stale = state.tasks.filter(t => !t.done && t.date < todayStr());
+  // 일정(is_event)은 특정 날짜에 고정되므로 자동이월에서 제외
+  const stale = state.tasks.filter(t => !t.done && t.date < todayStr() && !t.is_event);
   if (!stale.length) return;
   const ids = stale.map(t => t.id);
   const { error } = await sb.from('tasks').update({ date: target, carried_over: 1 }).in('id', ids);
@@ -670,22 +678,26 @@ function ddayChip(due) {
   const label = n < 0 ? `D+${-n}` : n === 0 ? 'D-DAY' : `D-${n}`;
   return `<span class="dday ${cls}" title="마감 ${fmtKo(due)}">⏰ ${label}</span>`;
 }
-async function createTask(title, ymd, priority, dueDate) {
+// isEvent=true(일정): 휴무일에도 그 날짜에 그대로 등록, 자동이월 대상에서 제외
+async function createTask(title, ymd, priority, dueDate, isEvent = false) {
   let date = ymd, moved = false;
-  if (isDayOff(ymd)) { date = nextWorkday(ymd); moved = date !== ymd; }
+  // 일정은 날짜 이동 없음. 일반 업무만 휴무일이면 다음 근무일로 이동
+  if (!isEvent && isDayOff(ymd)) { date = nextWorkday(ymd); moved = date !== ymd; }
   const { data, error } = await sb.from('tasks')
-    .insert({ user_id: user.id, title, date, priority, done: false, note: '', carried_over: 0, due_date: dueDate || null })
+    .insert({ user_id: user.id, title, date, priority, done: false, note: '', carried_over: 0, due_date: dueDate || null, is_event: isEvent })
     .select().single();
   if (error) return toast('추가 실패: ' + error.message);
   state.tasks.push(data);
-  if (moved) toast(`${fmtKo(ymd)}은(는) 휴무일이라 ${fmtKo(date)}에 배정했어요.`);
+  if (isEvent) toast(`📅 ${fmtKo(date)}에 일정을 등록했어요.`);
+  else if (moved) toast(`${fmtKo(ymd)}은(는) 휴무일이라 ${fmtKo(date)}에 배정했어요.`);
   renderAll();
 }
 async function addTask() {
   const input = document.getElementById('newTaskTitle');
   const title = input.value.trim(); if (!title) return;
   const due = document.getElementById('newTaskDue');
-  await createTask(title, curDate, document.getElementById('newTaskPri').value, due.value || null);
+  const isEvent = document.getElementById('newTaskEvent').checked;
+  await createTask(title, curDate, document.getElementById('newTaskPri').value, due.value || null, isEvent);
   input.value = ''; due.value = ''; input.focus();
 }
 async function addTaskQuick(inputId) {
@@ -722,6 +734,7 @@ function openTaskModal(id) {
     <label>업무명</label><input id="tmTitle" value="${esc(t.title)}">
     <label>날짜</label><input id="tmDate" type="date" value="${t.date}">
     <label>마감기한 (선택)</label><input id="tmDue" type="date" value="${t.due_date || ''}">
+    <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}> 📅 일정으로 지정 (휴무일에도 이 날짜에 고정, 자동이월 안 함)</label>
     <label>우선순위</label>
     <select id="tmPri">
       <option ${t.priority === '높음' ? 'selected' : ''}>높음</option>
@@ -738,8 +751,10 @@ function openTaskModal(id) {
 }
 async function saveTaskModal(id) {
   const t = state.tasks.find(x => x.id === id); if (!t) return;
+  const isEvent = document.getElementById('tmEvent').checked;
   let date = document.getElementById('tmDate').value;
-  if (date !== t.date && isDayOff(date)) {
+  // 일정은 휴무일에도 그대로 고정. 일반 업무만 휴무일 이동 여부 확인
+  if (!isEvent && date !== t.date && isDayOff(date)) {
     const nd = nextWorkday(date);
     if (confirm(`${fmtKo(date)}은(는) 휴무일이에요. ${fmtKo(nd)}(다음 근무일)로 배정할까요?\n[취소]를 누르면 휴무일에 그대로 둡니다.`)) date = nd;
   }
@@ -748,6 +763,7 @@ async function saveTaskModal(id) {
     date, priority: document.getElementById('tmPri').value,
     note: document.getElementById('tmNote').value.trim(),
     due_date: document.getElementById('tmDue').value || null,
+    is_event: isEvent,
   };
   const { error } = await sb.from('tasks').update(upd).eq('id', id);
   if (error) return toast('저장 실패: ' + error.message);
@@ -760,6 +776,7 @@ function taskLi(t) {
     <div class="task-title ${t.done ? 'done' : ''}" onclick="openTaskModal('${t.id}')">
       ${esc(t.title)}${t.note ? `<span class="note">${esc(t.note)}</span>` : ''}
     </div>
+    ${t.is_event ? '<span class="chip event">📅 일정</span>' : ''}
     ${t.routine_id ? '<span class="chip routine">🔁</span>' : ''}
     ${t.carried_over ? '<span class="chip carry">이월</span>' : ''}
     ${ddayChip(t.due_date)}
@@ -835,7 +852,7 @@ function renderDay() {
   document.getElementById('dayTitle').textContent = fmtKo(curDate) + (isToday ? ' · 오늘' : '');
   const banner = document.getElementById('dayOffBanner');
   if (isDayOff(curDate)) {
-    banner.textContent = `🏖️ ${dayOffLabel(curDate)} — 이 날에는 업무가 배정되지 않아요. 추가하면 다음 근무일로 이동합니다.`;
+    banner.textContent = `🏖️ ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 세미나 등 일정은 '📅 일정'을 체크하면 이 날짜에 그대로 등록돼요.`;
     banner.classList.remove('hidden');
   } else banner.classList.add('hidden');
   const list = tasksOf(curDate).sort((a, b) => (a.done - b.done) || priOrder(a.priority) - priOrder(b.priority));
