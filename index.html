@@ -5,8 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>아경의 업무 트래킹</title>
+<title>업무 트래킹</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✅</text></svg>">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-title" content="업무 트래킹">
+<meta name="theme-color" content="#3b63f3">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{
@@ -681,9 +685,13 @@ function toggleMemoPanel() { document.getElementById('memoPanel').classList.togg
 
 /* ===== 사용자별 표시 이름 (사이드바 로고) ===== */
 function updateLogo() {
+  const name = state.displayName || (user && user.email ? user.email.split('@')[0] : '사용자');
   const el = document.getElementById('logoName');
-  if (!el) return;
-  el.textContent = state.displayName || (user && user.email ? user.email.split('@')[0] : '사용자');
+  if (el) el.textContent = name;
+  // 즐겨찾기(브라우저 탭) 제목과 홈화면 아이콘 이름도 사용자별로
+  document.title = name + '의 업무 트래킹';
+  const at = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+  if (at) at.content = name + ' 업무';
 }
 function openNameModal() {
   openModal(`
