@@ -64,6 +64,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 /* ===== 메모 패널 (우측 고정) ===== */
 .memo-panel{background:#fffdf3;border-left:1px solid #efe8c8;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:10px;}
 .memo-panel h3{margin:0;font-size:15px;display:flex;align-items:center;gap:7px;}
+.memo-close{display:none;margin-left:auto;font-size:16px;}
 .memo-panel .add-box{display:flex;gap:6px;}
 .memo-tabs{display:flex;gap:4px;}
 .memo-tabs button{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 4px;
@@ -232,11 +233,15 @@ audio{width:100%;max-width:420px;height:38px;}
 .toast.show{opacity:1;}
 
 /* ===== 반응형 ===== */
-@media(max-width:1160px){
+@media(max-width:1200px){
   #app{grid-template-columns:var(--side-w) 1fr;}
   .memo-panel{position:fixed;top:0;right:-320px;width:300px;height:100vh;z-index:70;transition:right .25s;box-shadow:-6px 0 22px rgba(0,0,0,.12);}
   .memo-panel.open{right:0;}
   #memoToggle{display:block;}
+  .memo-close{display:inline-flex;}
+  /* 태블릿 대시보드 간결화: 긴 메모 숨기고 카드 1열로 */
+  #dashTasks .task-title .note{display:none;}
+  .dash-grid{grid-template-columns:1fr;}
 }
 @media(max-width:760px){
   #app{display:block;height:auto;}
@@ -290,7 +295,7 @@ audio{width:100%;max-width:420px;height:38px;}
 <div id="app" class="hidden">
   <!-- 좌측 사이드바 -->
   <aside class="sidebar">
-    <div class="logo"><span class="dot"></span> YEBA 아경</div>
+    <div class="logo" onclick="openNameModal()" title="이름 설정 (클릭)" style="cursor:pointer"><span class="dot"></span> YEBA <span id="logoName">아경</span></div>
     <button class="snav active" data-view="dash" onclick="switchView('dash')"><span class="ico">📊</span>대시보드</button>
     <button class="snav" data-view="day" onclick="switchView('day')"><span class="ico">📋</span>일간 업무</button>
     <button class="snav" data-view="week" onclick="switchView('week')"><span class="ico">🗓️</span>주간 계획</button>
@@ -418,7 +423,7 @@ audio{width:100%;max-width:420px;height:38px;}
 
   <!-- 우측 메모 패널 -->
   <aside class="memo-panel" id="memoPanel">
-    <h3>📝 메모</h3>
+    <h3>📝 메모 <button class="memo-close icon-btn" onclick="toggleMemoPanel()" title="닫기">✕</button></h3>
     <div class="memo-tabs" id="memoTabs">
       <button class="on" data-cat="전체" onclick="setMemoFilter('전체')">전체</button>
       <button data-cat="개인" onclick="setMemoFilter('개인')">🙂 개인</button>
@@ -448,7 +453,7 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6] };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '' };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
@@ -561,6 +566,7 @@ async function startApp() {
   await loadAll();
   await ensureRoutineTasks(); // 주기 도래분 생성 (지난 것 포함)
   await rolloverTasks();      // 지난 미완료분을 오늘로 이월
+  updateLogo();               // 사이드바에 내 표시 이름 반영
   renderAll();
 }
 async function loadAll() {
@@ -585,6 +591,7 @@ async function loadAll() {
   if (st.data && Array.isArray(st.data.weekly_off)) state.weeklyOff = st.data.weekly_off;
   else if (st.data && st.data.weekend_off === false) state.weeklyOff = [];
   else state.weeklyOff = [0, 6];
+  state.displayName = (st.data && st.data.display_name) || '';
 }
 async function rolloverTasks() {
   const target = nextWorkday(todayStr());
@@ -671,6 +678,30 @@ function switchView(v) {
 }
 function renderAll() { renderDash(); renderDay(); renderWeek(); renderMonth(); renderMemos(); renderMeetings(); renderContacts(); }
 function toggleMemoPanel() { document.getElementById('memoPanel').classList.toggle('open'); }
+
+/* ===== 사용자별 표시 이름 (사이드바 로고) ===== */
+function updateLogo() {
+  const el = document.getElementById('logoName');
+  if (!el) return;
+  el.textContent = state.displayName || (user && user.email ? user.email.split('@')[0] : '사용자');
+}
+function openNameModal() {
+  openModal(`
+    <h3>👤 내 이름 설정</h3>
+    <p class="muted" style="margin:0 0 8px">사이드바 상단에 표시될 내 이름이에요. 이 기기·내 계정에만 보이고, 다른 사람 화면엔 영향 없어요.</p>
+    <label>표시 이름</label>
+    <input id="dispName" value="${esc(state.displayName || '')}" placeholder="예: 김철수" onkeydown="if(event.key==='Enter')saveDisplayName()">
+    <div class="foot">
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" onclick="saveDisplayName()">저장</button>
+    </div>`);
+}
+async function saveDisplayName() {
+  const name = document.getElementById('dispName').value.trim();
+  const { error } = await sb.from('settings').upsert({ user_id: user.id, display_name: name }, { onConflict: 'user_id' });
+  if (error) return toast('저장 실패: ' + error.message);
+  state.displayName = name; updateLogo(); closeModal(); toast('이름을 저장했어요.');
+}
 
 /* ================= 공통: 업무 조작 ================= */
 function tasksOf(ymd) { return state.tasks.filter(t => t.date === ymd); }
