@@ -325,6 +325,7 @@ audio{width:100%;max-width:420px;height:38px;}
     <div class="sep"></div>
     <button class="snav" onclick="openRoutineModal()"><span class="ico">🔁</span>고정 업무</button>
     <button class="snav" onclick="openOffModal()"><span class="ico">🏖️</span>휴무 관리</button>
+    <button class="snav" id="teamNav" onclick="openTeamModal()" style="display:none"><span class="ico">👥</span>팀원 관리</button>
     <div class="grow"></div>
     <button class="snav" onclick="doLogout()"><span class="ico">🚪</span>로그아웃</button>
   </aside>
@@ -473,7 +474,7 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '' };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
@@ -591,7 +592,7 @@ async function startApp() {
   renderAll();
 }
 async function loadAll() {
-  const [t, m, mt, off, rt, ct, st] = await Promise.all([
+  const [t, m, mt, off, rt, ct, st, tm] = await Promise.all([
     sb.from('tasks').select('*').order('sort').order('created_at'),
     sb.from('memos').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false }),
     sb.from('meetings').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
@@ -599,6 +600,7 @@ async function loadAll() {
     sb.from('routines').select('*').order('created_at'),
     sb.from('contacts').select('*').order('company'),
     sb.from('settings').select('*').maybeSingle(),
+    sb.from('team_members').select('*').order('email'),
   ]);
   for (const r of [t, m, mt, off, rt, ct]) {
     if (r.error) { toast('데이터 로드 오류: ' + r.error.message); console.error(r.error); }
@@ -613,6 +615,8 @@ async function loadAll() {
   else if (st.data && st.data.weekend_off === false) state.weeklyOff = [];
   else state.weeklyOff = [0, 6];
   state.displayName = (st.data && st.data.display_name) || '';
+  state.teamMembers = (tm && tm.data) || [];
+  state.isAdmin = !!(user && user.email && state.teamMembers.some(x => x.email === user.email && x.is_admin));
 }
 async function rolloverTasks() {
   const target = nextWorkday(todayStr());
@@ -725,6 +729,8 @@ function updateLogo() {
   document.title = name + '의 업무 트래킹';
   const at = document.querySelector('meta[name="apple-mobile-web-app-title"]');
   if (at) at.content = name + ' 업무';
+  const tn = document.getElementById('teamNav');
+  if (tn) tn.style.display = state.isAdmin ? '' : 'none';
 }
 function openNameModal() {
   openModal(`
@@ -742,6 +748,45 @@ async function saveDisplayName() {
   const { error } = await sb.from('settings').upsert({ user_id: user.id, display_name: name }, { onConflict: 'user_id' });
   if (error) return toast('저장 실패: ' + error.message);
   state.displayName = name; updateLogo(); closeModal(); toast('이름을 저장했어요.');
+}
+
+/* ===== 팀원 관리 (거래처 공유, 관리자 전용) ===== */
+function openTeamModal() {
+  if (!state.isAdmin) return toast('관리자만 팀원을 관리할 수 있어요.');
+  const rows = state.teamMembers.map(m => `
+    <div class="off-item">
+      <span>👤 ${esc(m.email)}</span>
+      ${m.is_admin ? '<span class="chip routine">관리자</span>' : ''}
+      ${m.email !== user.email ? `<button class="icon-btn" onclick="removeTeamMember('${esc(m.email)}')" title="공유에서 제거">✕</button>` : ''}
+    </div>`).join('') || '<div class="muted">멤버가 없어요.</div>';
+  openModal(`
+    <h3>👥 팀원 관리 (거래처 공유)</h3>
+    <p class="muted" style="margin:0 0 8px">여기 등록된 사람끼리 거래처를 공유해요. 이메일을 추가하면 (가입 전이라도) 공유 대상이 됩니다. 추가·제거는 관리자만 가능해요.</p>
+    <label>팀원 이메일 추가</label>
+    <div class="row">
+      <input type="email" id="tmEmail" placeholder="예: name@gmail.com" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addTeamMember()">
+      <button class="btn sm" onclick="addTeamMember()">추가</button>
+    </div>
+    <label>공유 멤버 (${state.teamMembers.length}명)</label>
+    <div class="off-list">${rows}</div>
+    <div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>`);
+}
+async function addTeamMember() {
+  const email = (document.getElementById('tmEmail').value || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('올바른 이메일을 입력하세요.');
+  if (state.teamMembers.some(m => m.email === email)) return toast('이미 추가된 이메일이에요.');
+  const { error } = await sb.from('team_members').insert({ email });
+  if (error) return toast('추가 실패: ' + error.message);
+  await loadAll(); openTeamModal(); renderAll();
+  toast('팀원을 추가했어요.');
+}
+async function removeTeamMember(email) {
+  if (email === user.email) return;
+  if (!confirm(email + ' 님을 거래처 공유에서 제거할까요?\n(그 사람은 더 이상 공유 거래처를 볼 수 없어요)')) return;
+  const { error } = await sb.from('team_members').delete().eq('email', email);
+  if (error) return toast('제거 실패: ' + error.message);
+  await loadAll(); openTeamModal(); renderAll();
+  toast('제거했어요.');
 }
 
 /* ================= 공통: 업무 조작 ================= */
