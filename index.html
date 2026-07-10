@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="업무 트래킹">
 <meta name="theme-color" content="#3b63f3">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <style>
 :root{
   --bg:#f6f7fb; --card:#ffffff; --line:#e6e8ef; --text:#23272f; --sub:#7a8194;
@@ -135,9 +136,11 @@ ul.task-list li:last-child{border-bottom:none;}
 .task-title{flex:1;cursor:pointer;min-width:120px;}
 .task-title.done{text-decoration:line-through;color:var(--sub);}
 .task-title .note{display:block;font-size:12.5px;color:var(--sub);}
-.reorder{display:inline-flex;flex-direction:column;line-height:.7;flex:none;margin-right:-2px;}
-.reorder .icon-btn{padding:0 3px;font-size:9px;color:#b7bccb;}
-.reorder .icon-btn:hover{color:var(--accent);}
+.drag-handle{cursor:grab;color:#c2c7d6;font-size:17px;flex:none;padding:0 4px;touch-action:none;user-select:none;}
+.drag-handle:active{cursor:grabbing;}
+.dtask.sortable-chosen{background:var(--accent-soft);border-radius:8px;}
+.dtask.sortable-ghost{opacity:.35;}
+li.routine-fixed .task-check.rf{width:21px;height:21px;min-width:21px;background:#eefafd;border:2px solid #bfe6f0;color:#0e7f9c;font-size:11px;cursor:default;}
 .chip{font-size:11.5px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap;}
 .chip.p-high{background:#fdecec;color:var(--danger);}
 .chip.p-mid{background:#fff4e0;color:#b97d0e;}
@@ -471,6 +474,7 @@ let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], con
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
+let daySortable = null;
 
 function getConfig() {
   try {
@@ -860,8 +864,10 @@ async function saveTaskModal(id) {
 }
 function taskLi(t, withOrder) {
   const li = document.createElement('li');
+  const drag = withOrder && !t.done;
+  if (drag) { li.className = 'dtask'; li.dataset.id = t.id; }
   li.innerHTML = `
-    ${withOrder && !t.done ? `<span class="reorder"><button class="icon-btn" onclick="event.stopPropagation();moveTask('${t.id}',-1)" title="위로">▲</button><button class="icon-btn" onclick="event.stopPropagation();moveTask('${t.id}',1)" title="아래로">▼</button></span>` : ''}
+    ${drag ? '<span class="drag-handle" title="드래그해서 순서 변경">≡</span>' : ''}
     <div class="task-check ${t.done ? 'done' : ''}" onclick="toggleTask('${t.id}')">${t.done ? '✓' : ''}</div>
     <div class="task-title ${t.done ? 'done' : ''}" onclick="openTaskModal('${t.id}')">
       ${esc(t.title)}${t.note ? `<span class="note">${esc(t.note)}</span>` : ''}
@@ -937,6 +943,28 @@ function renderDash() {
 /* ================= 일간 ================= */
 function moveDay(n) { curDate = addDays(curDate, n); renderDay(); }
 function goToday() { curDate = todayStr(); renderDay(); }
+// 이 날 도래하는 고정업무 판정 (일간 표시용, 매일 포함)
+function routineOccursOnDay(r, ymd) {
+  const rep = r.repeat_every || '매일';
+  if (rep === '매일') return !isDayOff(ymd);
+  return routineOccursOn(r, ymd);
+}
+function routineLi(r) {
+  const li = document.createElement('li');
+  li.className = 'routine-fixed';
+  li.innerHTML = `
+    <div class="task-check rf" title="고정 업무 (이 날 예정)">🔁</div>
+    <div class="task-title">${esc(r.title)}<span class="note">고정 업무 · ${esc(r.repeat_every || '매일')}</span></div>
+    <span class="chip routine">🔁 고정</span>`;
+  return li;
+}
+// 드래그로 바뀐 일간 순서를 sort에 저장
+async function saveDayOrder() {
+  const ids = [...document.querySelectorAll('#dayTasks .dtask')].map(li => li.dataset.id);
+  const changed = [];
+  ids.forEach((id, k) => { const t = state.tasks.find(x => x.id === id); if (t && (t.sort || 0) !== k) { t.sort = k; changed.push(t); } });
+  for (const t of changed) { await sb.from('tasks').update({ sort: t.sort }).eq('id', t.id); }
+}
 function renderDay() {
   const isToday = curDate === todayStr();
   document.getElementById('dayTitle').textContent = fmtKo(curDate) + (isToday ? ' · 오늘' : '');
@@ -946,9 +974,14 @@ function renderDay() {
     banner.classList.remove('hidden');
   } else banner.classList.add('hidden');
   const list = tasksOf(curDate).sort(taskSort);
+  // 이 날 도래하는 고정업무 중 아직 실제 업무로 안 만들어진 것 → 상단에 고정 표시
+  const rOcc = state.routines.filter(r => r.active && routineOccursOnDay(r, curDate) && !list.some(t => t.routine_id === r.id));
   const ul = document.getElementById('dayTasks');
-  ul.innerHTML = list.length ? '' : '<li class="muted" style="justify-content:center">등록된 업무가 없어요.</li>';
+  ul.innerHTML = (list.length || rOcc.length) ? '' : '<li class="muted" style="justify-content:center">등록된 업무가 없어요.</li>';
+  rOcc.forEach(r => ul.appendChild(routineLi(r)));
   list.forEach(t => ul.appendChild(taskLi(t, true)));
+  if (daySortable) { daySortable.destroy(); daySortable = null; }
+  if (window.Sortable) daySortable = Sortable.create(ul, { handle: '.drag-handle', draggable: '.dtask', animation: 150, onEnd: saveDayOrder });
   const done = list.filter(t => t.done).length;
   document.getElementById('dayProg').style.width = list.length ? (done / list.length * 100) + '%' : '0%';
   document.getElementById('dayProgTxt').textContent = list.length ? `${done}/${list.length} 완료` : '—';
