@@ -141,6 +141,8 @@ ul.task-list li:last-child{border-bottom:none;}
 .dtask.sortable-chosen{background:var(--accent-soft);border-radius:8px;}
 .dtask.sortable-ghost{opacity:.35;}
 li.routine-fixed .task-check.rf{width:21px;height:21px;min-width:21px;background:#eefafd;border:2px solid #bfe6f0;color:#0e7f9c;font-size:11px;cursor:default;}
+li.routine-fixed.rdone .task-check.rf{background:var(--ok);border-color:var(--ok);color:#fff;}
+li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub);}
 .chip{font-size:11.5px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap;}
 .chip.p-high{background:#fdecec;color:var(--danger);}
 .chip.p-mid{background:#fff4e0;color:#b97d0e;}
@@ -193,6 +195,7 @@ li.routine-fixed .task-check.rf{width:21px;height:21px;min-width:21px;background
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .mcell .mt.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
 .mcell .mt.routine-mark{background:#eefafd;color:#0e7f9c;}
+.mcell .mt.routine-mark.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
 .mcell .more{color:var(--sub);}
 
 /* ===== 회의록 ===== */
@@ -949,12 +952,28 @@ function routineOccursOnDay(r, ymd) {
   if (rep === '매일') return !isDayOff(ymd);
   return routineOccursOn(r, ymd);
 }
-function routineLi(r) {
+// 이 반복 주기분이 (다른 날로 이월돼서라도) 완료됐는지 → 완료 시 예정 표시에 취소선
+function routineOccurrenceDone(r, ymd) {
+  const rep = r.repeat_every || '매일';
+  let nextOcc;
+  if (rep === '매주') nextOcc = addDays(ymd, 7);
+  else if (rep === '2주마다') nextOcc = addDays(ymd, 14);
+  else if (rep === '매월') {
+    const [y, m] = ymd.split('-').map(Number);
+    const dayN = Number((r.anchor_date || ymd).slice(8, 10));
+    const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
+    const last = new Date(ny, nm, 0).getDate();
+    nextOcc = `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(dayN, last)).padStart(2, '0')}`;
+  } else return false;
+  return state.tasks.some(t => t.routine_id === r.id && t.done && t.date >= ymd && t.date < nextOcc);
+}
+function routineLi(r, ymd) {
+  const done = routineOccurrenceDone(r, ymd);
   const li = document.createElement('li');
-  li.className = 'routine-fixed';
+  li.className = 'routine-fixed' + (done ? ' rdone' : '');
   li.innerHTML = `
-    <div class="task-check rf" title="고정 업무 (이 날 예정)">🔁</div>
-    <div class="task-title">${esc(r.title)}<span class="note">고정 업무 · ${esc(r.repeat_every || '매일')}</span></div>
+    <div class="task-check rf" title="고정 업무 (이 날 예정)">${done ? '✓' : '🔁'}</div>
+    <div class="task-title">${esc(r.title)}<span class="note">고정 업무 · ${esc(r.repeat_every || '매일')}${done ? ' · 완료' : ''}</span></div>
     <span class="chip routine">🔁 고정</span>`;
   return li;
 }
@@ -978,7 +997,7 @@ function renderDay() {
   const rOcc = state.routines.filter(r => r.active && routineOccursOnDay(r, curDate) && !list.some(t => t.routine_id === r.id));
   const ul = document.getElementById('dayTasks');
   ul.innerHTML = (list.length || rOcc.length) ? '' : '<li class="muted" style="justify-content:center">등록된 업무가 없어요.</li>';
-  rOcc.forEach(r => ul.appendChild(routineLi(r)));
+  rOcc.forEach(r => ul.appendChild(routineLi(r, curDate)));
   list.forEach(t => ul.appendChild(taskLi(t, true)));
   if (daySortable) { daySortable.destroy(); daySortable = null; }
   if (window.Sortable) daySortable = Sortable.create(ul, { handle: '.drag-handle', draggable: '.dtask', animation: 150, onEnd: saveDayOrder });
@@ -1052,7 +1071,7 @@ function renderMonth() {
     const meets = state.meetings.filter(mm => mm.date === d).length;
     let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? '<span>🏖️</span>' : ''}</div>`;
     // 반복 고정업무를 셀 상단에, 그 아래 실제 업무
-    const mItems = rOcc.map(r => `<div class="mt routine-mark">🔁 ${esc(r.title)}</div>`)
+    const mItems = rOcc.map(r => `<div class="mt routine-mark${routineOccurrenceDone(r, d) ? ' done' : ''}">🔁 ${esc(r.title)}</div>`)
       .concat(ts.map(t => `<div class="mt ${t.done ? 'done' : ''}">${esc(t.title)}</div>`));
     mItems.slice(0, 3).forEach(h => html += h);
     if (mItems.length > 3) html += `<div class="more">+${mItems.length - 3}건 더</div>`;
