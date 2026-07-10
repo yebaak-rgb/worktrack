@@ -444,6 +444,9 @@ audio{width:100%;max-width:420px;height:38px;}
 'use strict';
 /* ================= 설정 & 상태 ================= */
 const CFG_KEY = 'worktrack_cfg';
+// 부서 공용 배포용 기본 접속 정보 — anon/publishable key는 공개용이라 노출돼도 안전(데이터는 RLS로 본인 것만 접근).
+// 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
+const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
 let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6] };
 let curDate = todayStr();
@@ -451,7 +454,12 @@ let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
 
 function getConfig() {
-  try { return JSON.parse(localStorage.getItem(CFG_KEY)); } catch (e) { return null; }
+  try {
+    const v = JSON.parse(localStorage.getItem(CFG_KEY));
+    if (v && v.url && v.key) return v;
+  } catch (e) {}
+  // localStorage에 저장된 값이 없으면 배포에 심어둔 기본 접속 정보 사용
+  return (EMBEDDED_CFG.url && EMBEDDED_CFG.key) ? EMBEDDED_CFG : null;
 }
 function saveConfig() {
   const url = document.getElementById('cfgUrl').value.trim().replace(/\/+$/, '');
