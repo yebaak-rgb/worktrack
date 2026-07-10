@@ -186,6 +186,7 @@ ul.task-list li:last-child{border-bottom:none;}
 .mcell .mt{background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:1px 5px;margin-bottom:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .mcell .mt.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
+.mcell .mt.routine-mark{background:#eefafd;color:#0e7f9c;}
 .mcell .more{color:var(--sub);}
 
 /* ===== 회의록 ===== */
@@ -655,6 +656,22 @@ function nextOccurrence(r) {
   }
   return null;
 }
+// 특정 날짜에 반복 고정업무(매일 제외)가 도래하는지 — 월간 캘린더 예정 표시용
+function monthlyOccursOn(anchor, ymd) {
+  const dayN = Number(anchor.slice(8, 10));
+  const [y, m] = ymd.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return Number(ymd.slice(8, 10)) === Math.min(dayN, last);
+}
+function routineOccursOn(r, ymd) {
+  const rep = r.repeat_every || '매일';
+  if (rep === '매일') return false;            // 매일 반복은 캘린더 표시 제외
+  const anchor = r.anchor_date || (r.created_at || '').slice(0, 10);
+  if (!anchor || ymd < anchor) return false;
+  if (rep === '매월') return monthlyOccursOn(anchor, ymd);
+  const step = rep === '2주마다' ? 14 : 7;
+  return diffDays(anchor, ymd) % step === 0;
+}
 // 주기가 도래한 고정 업무를 자동 생성 (앱을 열 때 실행)
 async function ensureRoutineTasks() {
   const today = todayStr();
@@ -977,10 +994,14 @@ function renderMonth() {
     const off = isDayOff(d);
     cell.className = 'mcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
     const ts = tasksOf(d);
+    // 반복 고정업무(매주/2주/매월) 예정 표시 — 아직 생성 안 된 도래분만(중복 방지)
+    const rOcc = state.routines.filter(r => r.active && routineOccursOn(r, d) && !ts.some(t => t.routine_id === r.id));
     const meets = state.meetings.filter(mm => mm.date === d).length;
     let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? '<span>🏖️</span>' : ''}</div>`;
-    ts.slice(0, 3).forEach(t => { html += `<div class="mt ${t.done ? 'done' : ''}">${esc(t.title)}</div>`; });
-    if (ts.length > 3) html += `<div class="more">+${ts.length - 3}건 더</div>`;
+    const mItems = ts.map(t => `<div class="mt ${t.done ? 'done' : ''}">${esc(t.title)}</div>`)
+      .concat(rOcc.map(r => `<div class="mt routine-mark">🔁 ${esc(r.title)}</div>`));
+    mItems.slice(0, 3).forEach(h => html += h);
+    if (mItems.length > 3) html += `<div class="more">+${mItems.length - 3}건 더</div>`;
     if (meets) html += `<div class="more">🎙️ 회의 ${meets}건</div>`;
     cell.innerHTML = html;
     const dd = d;
