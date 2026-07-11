@@ -202,6 +202,21 @@ li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub)
 .mcell .mt.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
 .mcell .mt.routine-mark{background:#eefafd;color:#0e7f9c;}
 .mcell .mt.routine-mark.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
+.mcell .mt.mt-meet{background:#f1e9ff;color:#5b3aa8;}
+.mcell .mt.mt-shared{background:#e7f6ee;color:#1c7a4f;}
+/* 일간 회의·공동일정 강조 행 */
+.ev-row{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;margin-bottom:6px;cursor:pointer;font-size:13.5px;}
+.ev-row:last-child{margin-bottom:0;}
+.ev-meet{background:#f1e9ff;color:#5b3aa8;}
+.ev-shared{background:#e7f6ee;color:#1c7a4f;}
+.ev-row .ev-time{font-weight:800;font-size:13px;min-width:46px;flex:none;}
+.ev-row .ev-title{font-weight:600;}
+.ev-row .ev-sub{font-weight:400;opacity:.7;font-size:12px;margin-left:5px;}
+.ev-row:hover{filter:brightness(.97);}
+/* 주간 회의·공동일정 */
+.wev{font-size:12px;padding:4px 7px;border-radius:6px;margin-bottom:4px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+.wev-meet{background:#f1e9ff;color:#5b3aa8;}
+.wev-shared{background:#e7f6ee;color:#1c7a4f;}
 .mcell .more{color:var(--sub);}
 
 /* ===== 회의록 ===== */
@@ -388,6 +403,16 @@ audio{width:100%;max-width:420px;height:38px;}
       </div>
       <div id="dayOffBanner" class="dayoff-banner hidden"></div>
       <div class="card">
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h3 style="margin:0">🎙️ 회의 · 공동일정</h3>
+          <span style="display:flex;gap:6px">
+            <button class="btn soft sm" onclick="openMeetingModal(null, curDate)">＋ 회의</button>
+            <button class="btn soft sm" id="addSharedBtn" onclick="openSharedEventModal(null, curDate)" style="display:none">＋ 공동일정</button>
+          </span>
+        </div>
+        <div id="dayEvents"></div>
+      </div>
+      <div class="card" style="margin-top:14px">
         <div class="progress-wrap">
           <div class="progress-bar"><div id="dayProg" style="width:0%"></div></div>
           <span class="muted" id="dayProgTxt"></span>
@@ -400,10 +425,6 @@ audio{width:100%;max-width:420px;height:38px;}
           <label class="event-inline" title="일정으로 등록 (휴무일에도 이 날짜에 고정, 자동이월 안 됨)"><input type="checkbox" id="newTaskEvent">📅 일정</label>
           <button class="btn" onclick="addTask()">추가</button>
         </div>
-      </div>
-      <div class="card" style="margin-top:14px">
-        <h3>🎙️ 이 날의 회의</h3>
-        <div id="dayMeetings" class="meet-list"></div>
       </div>
     </section>
 
@@ -480,7 +501,7 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], isTeamMember: false };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
@@ -598,7 +619,7 @@ async function startApp() {
   renderAll();
 }
 async function loadAll() {
-  const [t, m, mt, off, rt, ct, st, tm] = await Promise.all([
+  const [t, m, mt, off, rt, ct, st, tm, se] = await Promise.all([
     sb.from('tasks').select('*').order('sort').order('created_at'),
     sb.from('memos').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false }),
     sb.from('meetings').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
@@ -607,6 +628,7 @@ async function loadAll() {
     sb.from('contacts').select('*').order('company'),
     sb.from('settings').select('*').maybeSingle(),
     sb.from('team_members').select('*').order('email'),
+    sb.from('shared_events').select('*'),
   ]);
   for (const r of [t, m, mt, off, rt, ct]) {
     if (r.error) { toast('데이터 로드 오류: ' + r.error.message); console.error(r.error); }
@@ -623,7 +645,12 @@ async function loadAll() {
   state.displayName = (st.data && st.data.display_name) || '';
   state.teamMembers = (tm && tm.data) || [];
   state.isAdmin = !!(user && user.email && state.teamMembers.some(x => x.email === user.email && x.is_admin));
+  state.sharedEvents = (se && se.data) || [];
+  state.isTeamMember = !!(user && user.email && state.teamMembers.some(x => x.email === user.email));
 }
+/* 날짜별 회의·공동일정 (시간순) */
+function meetingsOf(ymd) { return state.meetings.filter(m => m.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
+function sharedOf(ymd) { return state.sharedEvents.filter(e => e.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
 async function rolloverTasks() {
   const target = nextWorkday(todayStr());
   // 일정(is_event)은 특정 날짜에 고정되므로 자동이월에서 제외
@@ -1055,10 +1082,28 @@ function renderDay() {
   const done = list.filter(t => t.done).length;
   document.getElementById('dayProg').style.width = list.length ? (done / list.length * 100) + '%' : '0%';
   document.getElementById('dayProgTxt').textContent = list.length ? `${done}/${list.length} 완료` : '—';
-  const dm = state.meetings.filter(m => m.date === curDate);
-  const box = document.getElementById('dayMeetings');
-  box.innerHTML = dm.length ? '' : '<div class="muted">이 날의 회의록이 없어요.</div>';
-  dm.forEach(m => box.appendChild(meetingCard(m)));
+  renderDayEvents(curDate);
+}
+function renderDayEvents(ymd) {
+  const box = document.getElementById('dayEvents'); if (!box) return;
+  const asb = document.getElementById('addSharedBtn'); if (asb) asb.style.display = state.isTeamMember ? '' : 'none';
+  const ms = meetingsOf(ymd), ses = sharedOf(ymd);
+  if (!ms.length && !ses.length) { box.innerHTML = '<div class="muted">등록된 회의·공동일정이 없어요.</div>'; return; }
+  box.innerHTML = '';
+  ms.forEach(m => box.appendChild(eventRow('meet', m)));
+  ses.forEach(e => box.appendChild(eventRow('shared', e)));
+}
+function eventRow(kind, x) {
+  const div = document.createElement('div');
+  div.className = 'ev-row ' + (kind === 'meet' ? 'ev-meet' : 'ev-shared');
+  const time = `<span class="ev-time">${x.time ? esc(x.time) : ''}</span>`;
+  const badge = kind === 'meet' ? '🎙️' : '👥';
+  const sub = kind === 'meet'
+    ? (x.audio_path ? ' 🔊' : '') + ((x.task_ids || []).length ? ` 🔗${x.task_ids.length}` : '')
+    : (x.note ? ' · ' + esc(x.note) : '') + (x.created_by ? ` · ${esc((x.created_by || '').split('@')[0])}` : '');
+  div.innerHTML = `${time}<span class="ev-title">${badge} ${esc(x.title)}<span class="ev-sub">${sub}</span></span>`;
+  div.onclick = () => kind === 'meet' ? openMeetingModal(x.id) : openSharedEventModal(x.id);
+  return div;
 }
 
 /* ================= 주간 ================= */
@@ -1078,6 +1123,8 @@ function renderWeek() {
     const ts = tasksOf(d).sort(taskSort);
     col.innerHTML = `<h4><span>${DOW_KO[dowOf(d)]} <span class="d">${Number(d.slice(8))}일</span></span>
       ${off ? `<span class="off-tag">🏖️</span>` : ''}</h4>`;
+    meetingsOf(d).forEach(mm => { const w = document.createElement('div'); w.className = 'wev wev-meet'; w.innerHTML = `${mm.time ? esc(mm.time) + ' ' : ''}🎙️ ${esc(mm.title)}`; w.onclick = () => openMeetingModal(mm.id); col.appendChild(w); });
+    sharedOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-shared'; w.innerHTML = `${ev.time ? esc(ev.time) + ' ' : ''}👥 ${esc(ev.title)}`; w.onclick = () => openSharedEventModal(ev.id); col.appendChild(w); });
     ts.forEach(t => {
       const w = document.createElement('div'); w.className = 'wtask';
       w.innerHTML = `<div class="task-check ${t.done ? 'done' : ''}" onclick="event.stopPropagation();toggleTask('${t.id}')">${t.done ? '✓' : ''}</div>
@@ -1119,14 +1166,14 @@ function renderMonth() {
     const ts = tasksOf(d);
     // 반복 고정업무(매주/2주/매월) 예정 표시 — 아직 생성 안 된 도래분만(중복 방지)
     const rOcc = state.routines.filter(r => r.active && r.show_on_calendar !== false && routineOccursOn(r, d) && !ts.some(t => t.routine_id === r.id));
-    const meets = state.meetings.filter(mm => mm.date === d).length;
     let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? '<span>🏖️</span>' : ''}</div>`;
-    // 반복 고정업무를 셀 상단에, 그 아래 실제 업무
-    const mItems = rOcc.map(r => `<div class="mt routine-mark${routineOccurrenceDone(r, d) ? ' done' : ''}">🔁 ${esc(r.title)}</div>`)
+    // 셀 상단: 회의(보라)·공동일정(초록) → 반복 → 실제 업무
+    const mItems = meetingsOf(d).map(mm => `<div class="mt mt-meet">🎙️ ${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
+      .concat(sharedOf(d).map(ev => `<div class="mt mt-shared">👥 ${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
+      .concat(rOcc.map(r => `<div class="mt routine-mark${routineOccurrenceDone(r, d) ? ' done' : ''}">🔁 ${esc(r.title)}</div>`))
       .concat(ts.map(t => `<div class="mt ${t.done ? 'done' : ''}">${esc(t.title)}</div>`));
-    mItems.slice(0, 3).forEach(h => html += h);
-    if (mItems.length > 3) html += `<div class="more">+${mItems.length - 3}건 더</div>`;
-    if (meets) html += `<div class="more">🎙️ 회의 ${meets}건</div>`;
+    mItems.slice(0, 4).forEach(h => html += h);
+    if (mItems.length > 4) html += `<div class="more">+${mItems.length - 4}건 더</div>`;
     cell.innerHTML = html;
     const dd = d;
     cell.onclick = () => { curDate = dd; switchView('day'); };
@@ -1227,7 +1274,7 @@ function meetingCard(m) {
   div.innerHTML = `
     <h4>🎙️ ${esc(m.title)}</h4>
     <div class="meta">
-      <span>📅 ${fmtKo(m.date)}</span>
+      <span>📅 ${fmtKo(m.date)}${m.time ? ' ' + esc(m.time) : ''}</span>
       ${m.audio_path ? '<span>🔊 녹음 있음</span>' : ''}
       ${linkedCount ? `<span>🔗 연결 업무 ${linkedCount}건</span>` : ''}
     </div>`;
@@ -1235,7 +1282,7 @@ function meetingCard(m) {
   return div;
 }
 let mediaRecorder = null, recChunks = [], recBlob = null, recTimer = null, recSec = 0;
-function openMeetingModal(id) {
+function openMeetingModal(id, presetDate) {
   const m = id ? state.meetings.find(x => x.id === id) : null;
   recBlob = null; stopRecCleanup();
   const selIds = new Set(m ? (m.task_ids || []) : []);
@@ -1249,7 +1296,8 @@ function openMeetingModal(id) {
   openModal(`
     <h3>${m ? '회의록' : '새 회의록'}</h3>
     <label>제목</label><input id="mtTitle" value="${m ? esc(m.title) : ''}" placeholder="예: 주간 마케팅 회의">
-    <label>날짜</label><input id="mtDate" type="date" value="${m ? m.date : todayStr()}">
+    <label>날짜</label><input id="mtDate" type="date" value="${m ? m.date : (presetDate || todayStr())}">
+    <label>시간 (선택)</label><input id="mtTime" type="time" value="${m ? (m.time || '') : ''}">
     <label>회의 녹음</label>
     <div class="rec-controls" id="recBox">
       <button class="btn danger sm" id="recBtn" onclick="toggleRec()">● 녹음 시작</button>
@@ -1325,7 +1373,7 @@ async function saveMeeting(id) {
     if (audio_path) await sb.storage.from('recordings').remove([audio_path]);
     audio_path = path;
   }
-  const row = { user_id: user.id, title, date, content, task_ids, audio_path };
+  const row = { user_id: user.id, title, date, time: document.getElementById('mtTime').value || null, content, task_ids, audio_path };
   let error, data;
   if (id) ({ error } = await sb.from('meetings').update(row).eq('id', id));
   else ({ data, error } = await sb.from('meetings').insert(row).select().single());
@@ -1333,6 +1381,48 @@ async function saveMeeting(id) {
   if (id) Object.assign(state.meetings.find(x => x.id === id), row);
   else state.meetings.unshift(data);
   recBlob = null; closeModal(); renderAll(); toast('회의록이 저장됐어요.');
+}
+/* ===== 공동 일정 (팀 공유) ===== */
+function openSharedEventModal(id, presetDate) {
+  if (!state.isTeamMember) return toast('팀원만 공동 일정을 등록할 수 있어요.');
+  const e = id ? state.sharedEvents.find(x => x.id === id) : null;
+  openModal(`
+    <h3>${e ? '공동 일정' : '새 공동 일정'} <span class="chip cat-p">👥 팀 공유</span></h3>
+    <label>제목</label><input id="seTitle" value="${e ? esc(e.title) : ''}" placeholder="예: 부서 회식, 워크샵">
+    <label>날짜</label><input id="seDate" type="date" value="${e ? e.date : (presetDate || todayStr())}">
+    <label>시간 (선택)</label><input id="seTime" type="time" value="${e ? (e.time || '') : ''}">
+    <label>메모 · 장소 (선택)</label><textarea id="seNote" rows="3" placeholder="장소, 준비물 등">${e ? esc(e.note || '') : ''}</textarea>
+    ${e && e.created_by ? `<p class="muted" style="margin:6px 0 0">등록: ${esc(e.created_by)}</p>` : ''}
+    <div class="foot">
+      ${e ? `<button class="btn danger left" onclick="delSharedEvent('${e.id}')">삭제</button>` : ''}
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" onclick="saveSharedEvent(${e ? `'${e.id}'` : 'null'})">저장</button>
+    </div>`);
+}
+async function saveSharedEvent(id) {
+  const title = document.getElementById('seTitle').value.trim();
+  if (!title) return toast('제목을 입력하세요.');
+  const row = {
+    title,
+    date: document.getElementById('seDate').value || todayStr(),
+    time: document.getElementById('seTime').value || null,
+    note: document.getElementById('seNote').value.trim() || null,
+    created_by: user.email,
+  };
+  let error, data;
+  if (id) ({ error } = await sb.from('shared_events').update(row).eq('id', id));
+  else ({ data, error } = await sb.from('shared_events').insert(row).select().single());
+  if (error) return toast('저장 실패: ' + error.message);
+  if (id) Object.assign(state.sharedEvents.find(x => x.id === id), row);
+  else state.sharedEvents.push(data);
+  closeModal(); renderAll(); toast('공동 일정을 저장했어요.');
+}
+async function delSharedEvent(id) {
+  if (!confirm('이 공동 일정을 삭제할까요? (팀원 모두에게서 사라집니다)')) return;
+  const { error } = await sb.from('shared_events').delete().eq('id', id);
+  if (error) return toast('삭제 실패: ' + error.message);
+  state.sharedEvents = state.sharedEvents.filter(x => x.id !== id);
+  closeModal(); renderAll(); toast('삭제했어요.');
 }
 async function delMeeting(id) {
   if (!confirm('이 회의록을 삭제할까요? 녹음 파일도 함께 삭제됩니다.')) return;
