@@ -1002,11 +1002,11 @@ function renderDashMonth() {
   const box = document.getElementById('dashMonth'); if (!box) return;
   const ym = todayStr().slice(0, 7);
   const [y, m] = ym.split('-').map(Number);
-  let html = ['월', '화', '수', '목', '금', '토', '일'].map(d => `<div class="mdow">${d}</div>`).join('');
-  let d = weekStart(`${ym}-01`);
+  let html = ['일', '월', '화', '수', '목', '금', '토'].map(d => `<div class="dmdow">${d}</div>`).join('');
+  let d = addDays(`${ym}-01`, -dowOf(`${ym}-01`));   // 일요일 시작
   const last = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
   while (true) {
-    if (d > last && dowOf(d) === 1) break;
+    if (d > last && dowOf(d) === 0) break;
     const inMonth = d.slice(0, 7) === ym;
     const off = isDayOff(d);
     // 대시보드 월간 캘린더엔 회의·공동일정만 표시 (업무·고정업무 제외)
@@ -1220,13 +1220,13 @@ function renderMonth() {
   const [y, m] = curMonth.split('-').map(Number);
   document.getElementById('monthTitle').textContent = `${y}년 ${m}월`;
   const grid = document.getElementById('monthGrid');
-  grid.innerHTML = ['월', '화', '수', '목', '금', '토', '일'].map(d => `<div class="dow">${d}</div>`).join('');
+  grid.innerHTML = ['일', '월', '화', '수', '목', '금', '토'].map(d => `<div class="dow">${d}</div>`).join('');
   const first = `${curMonth}-01`;
-  let d = weekStart(first);
+  let d = addDays(first, -dowOf(first));   // 일요일 시작
   const lastDay = new Date(y, m, 0).getDate();
   const last = `${curMonth}-${String(lastDay).padStart(2, '0')}`;
   while (true) {
-    if (d > last && dowOf(d) === 1) break;
+    if (d > last && dowOf(d) === 0) break;
     const cell = document.createElement('div');
     const inMonth = d.slice(0, 7) === curMonth;
     const off = isDayOff(d);
