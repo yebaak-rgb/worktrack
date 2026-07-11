@@ -108,7 +108,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .dash-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;}
 .dash-grid .full{grid-column:1/-1;}
 /* 대시보드: 상(월간|오늘할일) / 주간(전체너비) / 하(마감|회의) */
-.dash-top{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;align-items:start;}
+.dash-top{display:grid;grid-template-columns:1.5fr 1fr;gap:14px;align-items:stretch;}
+.dash-today{display:flex;flex-direction:column;}
+.dash-today .task-list{flex:1 1 auto;min-height:0;}
 .dash-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 /* 대시보드 월간(제목 표시) */
 .dash-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
@@ -391,7 +393,7 @@ audio{width:100%;max-width:420px;height:38px;}
           <h3>📅 월간 캘린더 <span class="mini" onclick="switchView('month')">전체 ›</span></h3>
           <div class="dash-month" id="dashMonth"></div>
         </div>
-        <div class="card">
+        <div class="card dash-today">
           <h3>✅ 오늘 꼭 할 일 <span class="mini" onclick="switchView('day')">전체 보기 ›</span></h3>
           <div class="progress-wrap">
             <div class="progress-bar"><div id="dashProg" style="width:0%"></div></div>
@@ -856,6 +858,8 @@ function tasksOf(ymd) { return state.tasks.filter(t => t.date === ymd); }
 function priOrder(p) { return p === '높음' ? 0 : p === '중간' ? 1 : 2; }
 // 정렬: 미완료 우선 → 수동 순서(sort) → 우선순위
 function taskSort(a, b) { return (a.done - b.done) || ((a.sort || 0) - (b.sort || 0)) || (priOrder(a.priority) - priOrder(b.priority)); }
+// 주간용: 반복(고정) 업무를 맨 위로, 그 다음 일반 정렬
+function weekTaskSort(a, b) { return ((b.routine_id ? 1 : 0) - (a.routine_id ? 1 : 0)) || taskSort(a, b); }
 function priChip(p) {
   const cls = p === '높음' ? 'p-high' : p === '중간' ? 'p-mid' : 'p-low';
   return `<span class="chip ${cls}">${esc(p)}</span>`;
@@ -1062,7 +1066,7 @@ function renderDash() {
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i);
     if (dowOf(d) === 0) continue; // 일요일만 숨김 (월~토 표시, 토요일 근무 여부는 개인 휴무 설정에 따름)
-    const ts = tasksOf(d).sort(taskSort);
+    const ts = tasksOf(d).sort(weekTaskSort);
     const dn = ts.filter(t => t.done).length;
     const cell = document.createElement('div');
     cell.className = 'cellm' + (d === today ? ' today' : '') + (isDayOff(d) ? ' off' : '');
@@ -1184,7 +1188,7 @@ function renderWeek() {
     const col = document.createElement('div');
     const off = isDayOff(d);
     col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
-    const ts = tasksOf(d).sort(taskSort);
+    const ts = tasksOf(d).sort(weekTaskSort);
     col.innerHTML = `<h4><span>${DOW_KO[dowOf(d)]} <span class="d">${Number(d.slice(8))}일</span></span>
       ${off ? `<span class="off-tag">🏖️</span>` : ''}</h4>`;
     meetingsOf(d).forEach(mm => { const w = document.createElement('div'); w.className = 'wev wev-meet'; w.innerHTML = `${mm.time ? esc(mm.time) + ' ' : ''}🎙️ ${esc(mm.title)}`; w.onclick = () => openMeetingModal(mm.id); col.appendChild(w); });
