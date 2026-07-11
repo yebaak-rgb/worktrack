@@ -107,6 +107,23 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 /* ===== 대시보드 ===== */
 .dash-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;}
 .dash-grid .full{grid-column:1/-1;}
+/* 대시보드 정리: 좌(월간·주간·마감/회의) | 우(오늘 할 일) */
+.dash-main{display:grid;grid-template-columns:1.15fr 1fr;gap:14px;align-items:start;}
+.dash-left{display:flex;flex-direction:column;gap:14px;}
+.dash-sub2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.mini-month{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+.mini-month .mdow{text-align:center;font-size:11px;color:var(--sub);font-weight:700;padding:2px 0;}
+.mini-month .mcell2{min-height:38px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:12.5px;cursor:pointer;gap:2px;}
+.mini-month .mcell2:hover{background:var(--bg);}
+.mini-month .mcell2.dim{opacity:.32;}
+.mini-month .mcell2.today{background:var(--accent);color:#fff;font-weight:800;}
+.mini-month .mcell2.off{color:#b08a2e;}
+.mini-month .dots{display:flex;gap:2px;height:5px;}
+.mini-month .dot{width:5px;height:5px;border-radius:50%;}
+.mini-month .dot.dt{background:var(--accent);}
+.mini-month .dot.dm{background:#7c4dcc;}
+.mini-month .dot.ds{background:#1c7a4f;}
+.mini-month .mcell2.today .dot{background:#fff;}
 .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
 .progress-bar{flex:1;height:8px;background:#edeff5;border-radius:6px;overflow:hidden;}
 .progress-bar>div{height:100%;background:var(--accent);border-radius:6px;transition:width .3s;}
@@ -283,6 +300,8 @@ audio{width:100%;max-width:420px;height:38px;}
   /* 태블릿 대시보드 간결화: 긴 메모 숨기고 카드 1열로 */
   #dashTasks .task-title .note{display:none;}
   .dash-grid{grid-template-columns:1fr;}
+  .dash-main{grid-template-columns:1fr;}
+  .dash-sub2{grid-template-columns:1fr;}
 }
 @media(max-width:760px){
   #app{display:block;height:auto;}
@@ -363,7 +382,27 @@ audio{width:100%;max-width:420px;height:38px;}
 
     <!-- 대시보드 -->
     <section id="view-dash">
-      <div class="dash-grid">
+      <div class="dash-main">
+        <div class="dash-left">
+          <div class="card">
+            <h3>📅 월간 캘린더 <span class="mini" onclick="switchView('month')">전체 ›</span></h3>
+            <div class="mini-month" id="dashMonth"></div>
+          </div>
+          <div class="card">
+            <h3>🗓️ 이번 주 <span class="mini" onclick="switchView('week')">주간 계획 ›</span></h3>
+            <div class="wk-mini" id="dashWeek"></div>
+          </div>
+          <div class="dash-sub2">
+            <div class="card">
+              <h3>⏰ 마감 임박</h3>
+              <div id="dashDue"></div>
+            </div>
+            <div class="card">
+              <h3>🎙️ 최근 회의 <span class="mini" onclick="switchView('meeting')">전체 ›</span></h3>
+              <div id="dashMeetings" class="meet-list"></div>
+            </div>
+          </div>
+        </div>
         <div class="card">
           <h3>✅ 오늘 꼭 할 일 <span class="mini" onclick="switchView('day')">전체 보기 ›</span></h3>
           <div class="progress-wrap">
@@ -377,18 +416,6 @@ audio{width:100%;max-width:420px;height:38px;}
             <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="dashNewDue"></label>
             <button class="btn sm" onclick="addTaskQuick('dashNewTask')">추가</button>
           </div>
-        </div>
-        <div class="card">
-          <h3>⏰ 마감 임박</h3>
-          <div id="dashDue"></div>
-        </div>
-        <div class="card">
-          <h3>🗓️ 이번 주 <span class="mini" onclick="switchView('week')">주간 계획 ›</span></h3>
-          <div class="wk-mini" id="dashWeek"></div>
-        </div>
-        <div class="card">
-          <h3>🎙️ 최근 회의 <span class="mini" onclick="switchView('meeting')">전체 ›</span></h3>
-          <div id="dashMeetings" class="meet-list"></div>
         </div>
       </div>
     </section>
@@ -964,7 +991,29 @@ function taskLi(t, withOrder) {
 }
 
 /* ================= 대시보드 ================= */
+// 대시보드 미니 월간 캘린더 (이번 달, 점=업무/회의/공동일정)
+function renderDashMonth() {
+  const box = document.getElementById('dashMonth'); if (!box) return;
+  const ym = todayStr().slice(0, 7);
+  const [y, m] = ym.split('-').map(Number);
+  let html = ['월', '화', '수', '목', '금', '토', '일'].map(d => `<div class="mdow">${d}</div>`).join('');
+  let d = weekStart(`${ym}-01`);
+  const last = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+  while (true) {
+    if (d > last && dowOf(d) === 1) break;
+    const inMonth = d.slice(0, 7) === ym;
+    const dots = (meetingsOf(d).length ? '<span class="dot dm"></span>' : '')
+      + (sharedOf(d).length ? '<span class="dot ds"></span>' : '')
+      + (tasksOf(d).length ? '<span class="dot dt"></span>' : '');
+    const cls = 'mcell2' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (isDayOff(d) ? ' off' : '');
+    html += `<div class="${cls}" data-d="${d}"><span>${Number(d.slice(8))}</span><span class="dots">${dots}</span></div>`;
+    d = addDays(d, 1);
+  }
+  box.innerHTML = html;
+  box.querySelectorAll('.mcell2').forEach(c => c.onclick = () => { curDate = c.dataset.d; switchView('day'); });
+}
 function renderDash() {
+  renderDashMonth();
   // 오늘 할 일
   const today = todayStr();
   const list = tasksOf(today).sort(taskSort);
