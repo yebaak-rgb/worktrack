@@ -1005,12 +1005,9 @@ function renderDashMonth() {
     if (d > last && dowOf(d) === 1) break;
     const inMonth = d.slice(0, 7) === ym;
     const off = isDayOff(d);
-    const ts = tasksOf(d);
-    const rOcc = state.routines.filter(r => r.active && r.show_on_calendar !== false && routineOccursOn(r, d) && !ts.some(t => t.routine_id === r.id));
+    // 대시보드 월간 캘린더엔 회의·공동일정만 표시 (업무·고정업무 제외)
     const items = meetingsOf(d).map(mm => `<div class="dmt dmt-meet">🎙️${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
-      .concat(sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
-      .concat(rOcc.map(r => `<div class="dmt dmt-routine${routineOccurrenceDone(r, d) ? ' done' : ''}">🔁${esc(r.title)}</div>`))
-      .concat(ts.map(t => `<div class="dmt${t.done ? ' done' : ''}">${esc(t.title)}</div>`));
+      .concat(sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`));
     const cls = 'dmcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
     let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' 🏖️' : ''}</div>`;
     items.slice(0, 3).forEach(h => cellHtml += h);
