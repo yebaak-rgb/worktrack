@@ -191,6 +191,9 @@ li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub)
 .due-inline input[type=date]{border:none;padding:8px 2px;width:130px;font-size:13px;}
 .day-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .day-nav h2{font-size:18px;margin:0;}
+.day-title-btn{cursor:pointer;border-radius:8px;padding:2px 8px;transition:background .12s;}
+.day-title-btn:hover{background:var(--accent-soft);color:var(--accent);}
+.day-title-btn::after{content:' ▾';font-size:13px;color:var(--sub);}
 .nav-btn{border:1px solid var(--line);background:#fff;border-radius:9px;width:34px;height:34px;font-size:15px;cursor:pointer;}
 .dayoff-banner{background:#fff7e8;border:1px solid #f3ddb0;color:#8a6d1f;border-radius:10px;
   padding:10px 14px;font-size:13.5px;margin-bottom:12px;}
@@ -428,7 +431,8 @@ audio{width:100%;max-width:420px;height:38px;}
     <section id="view-day" class="hidden">
       <div class="day-nav">
         <button class="nav-btn" onclick="moveDay(-1)">‹</button>
-        <h2 id="dayTitle"></h2>
+        <h2 id="dayTitle" class="day-title-btn" onclick="openDayPicker()" title="날짜 선택 (클릭)"></h2>
+        <input type="date" id="dayDatePicker" onchange="jumpToDate(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
         <button class="nav-btn" onclick="moveDay(1)">›</button>
         <button class="btn soft sm" onclick="goToday()">오늘</button>
       </div>
@@ -1092,6 +1096,14 @@ function renderDash() {
 /* ================= 일간 ================= */
 function moveDay(n) { curDate = addDays(curDate, n); renderDay(); }
 function goToday() { curDate = todayStr(); renderDay(); }
+// 날짜 제목 클릭 → 달력(날짜 선택)으로 그 날짜로 이동
+function openDayPicker() {
+  const inp = document.getElementById('dayDatePicker');
+  if (!inp) return;
+  inp.value = curDate;
+  try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+}
+function jumpToDate(v) { if (v) { curDate = v; renderDay(); } }
 // 이 날 도래하는 고정업무 판정 (일간 표시용, 매일 포함)
 function routineOccursOnDay(r, ymd) {
   const rep = r.repeat_every || '매일';
