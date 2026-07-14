@@ -698,7 +698,7 @@ async function rolloverTasks() {
   toast(`미완료 업무 ${stale.length}건을 ${fmtKo(target)}로 이월했어요.`);
 }
 /* ----- 고정 업무 주기 계산 ----- */
-const REPEATS = ['매일', '매주', '2주마다', '매월'];
+const REPEATS = ['매일', '매주', '2주마다', '매월', '분기별', '매년'];
 // 매월: 기준일과 같은 '일(day)'로, 짧은 달은 말일로 보정
 function monthlyDue(anchor, today) {
   const dayN = Number(anchor.slice(8, 10));
@@ -711,12 +711,45 @@ function monthlyDue(anchor, today) {
   if (cand > today) { m--; if (m === 0) { m = 12; y--; } cand = mk(y, m); }
   return cand >= anchor ? cand : null;
 }
+// 매년: 기준일과 같은 '월/일'로, 2/29는 평년엔 2/28로 보정
+function yearlyDue(anchor, today) {
+  const mo = anchor.slice(5, 7), dayN = Number(anchor.slice(8, 10));
+  const mk = (y) => {
+    const last = new Date(y, Number(mo), 0).getDate();
+    return `${y}-${mo}-${String(Math.min(dayN, last)).padStart(2, '0')}`;
+  };
+  let y = Number(today.slice(0, 4));
+  let cand = mk(y);
+  if (cand > today) cand = mk(--y);
+  return cand >= anchor ? cand : null;
+}
+// 분기별(3개월마다): 기준월에서 3개월 간격, 같은 '일(day)'로 짧은 달은 말일 보정
+function quarterlyDue(anchor, today) {
+  const [ay, am] = [Number(anchor.slice(0, 4)), Number(anchor.slice(5, 7))];
+  const dayN = Number(anchor.slice(8, 10));
+  const mk = (y, m) => {
+    const last = new Date(y, m, 0).getDate();
+    return `${y}-${String(m).padStart(2, '0')}-${String(Math.min(dayN, last)).padStart(2, '0')}`;
+  };
+  let [y, m] = today.split('-').map(Number);
+  for (let i = 0; i < 6; i++) {
+    const monthsFromAnchor = (y - ay) * 12 + (m - am);
+    if (monthsFromAnchor >= 0 && monthsFromAnchor % 3 === 0) {
+      const cand = mk(y, m);
+      if (cand <= today) return cand >= anchor ? cand : null;
+    }
+    m--; if (m === 0) { m = 12; y--; }
+  }
+  return null;
+}
 // 오늘 기준, 가장 최근에 도래한(<=오늘) 발생일. 없으면 null
 function latestDue(r, today) {
   const rep = r.repeat_every || '매일';
   if (rep === '매일') return isDayOff(today) ? null : today;
   const anchor = r.anchor_date || (r.created_at || today).slice(0, 10);
   if (anchor > today) return null;
+  if (rep === '매년') return yearlyDue(anchor, today);
+  if (rep === '분기별') return quarterlyDue(anchor, today);
   if (rep === '매월') return monthlyDue(anchor, today);
   const step = rep === '2주마다' ? 14 : 7;
   return addDays(anchor, Math.floor(diffDays(anchor, today) / step) * step);
@@ -728,6 +761,16 @@ function nextOccurrence(r) {
   if (rep === '매일') return null;
   const anchor = r.anchor_date || today;
   if (anchor >= today) return anchor;
+  if (rep === '매년') {
+    const mo = anchor.slice(5, 7), dayN = Number(anchor.slice(8, 10));
+    const mk = (yy) => { const last = new Date(yy, Number(mo), 0).getDate(); return `${yy}-${mo}-${String(Math.min(dayN, last)).padStart(2, '0')}`; };
+    const cand = mk(Number(today.slice(0, 4)));
+    return cand >= today ? cand : mk(Number(today.slice(0, 4)) + 1);
+  }
+  if (rep === '분기별') {
+    for (let i = 0; i < 370; i++) { if (routineOccursOn(r, addDays(today, i))) return addDays(today, i); }
+    return null;
+  }
   for (let i = 0; i < 62; i++) {
     const d = addDays(today, i);
     if (rep === '매월') { if (monthlyDue(anchor, d) === d) return d; }
@@ -745,11 +788,31 @@ function monthlyOccursOn(anchor, ymd) {
   const last = new Date(y, m, 0).getDate();
   return Number(ymd.slice(8, 10)) === Math.min(dayN, last);
 }
+// 매년: 같은 월 + 같은 일(2/29는 말일 보정)
+function yearlyOccursOn(anchor, ymd) {
+  if (ymd.slice(5, 7) !== anchor.slice(5, 7)) return false;
+  const dayN = Number(anchor.slice(8, 10));
+  const [y, m] = ymd.split('-').map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return Number(ymd.slice(8, 10)) === Math.min(dayN, last);
+}
+// 분기별: 기준월에서 3개월 배수 + 같은 일(말일 보정)
+function quarterlyOccursOn(anchor, ymd) {
+  const [ay, am] = [Number(anchor.slice(0, 4)), Number(anchor.slice(5, 7))];
+  const [y, m] = ymd.split('-').map(Number);
+  const monthsFromAnchor = (y - ay) * 12 + (m - am);
+  if (monthsFromAnchor < 0 || monthsFromAnchor % 3 !== 0) return false;
+  const dayN = Number(anchor.slice(8, 10));
+  const last = new Date(y, m, 0).getDate();
+  return Number(ymd.slice(8, 10)) === Math.min(dayN, last);
+}
 function routineOccursOn(r, ymd) {
   const rep = r.repeat_every || '매일';
   if (rep === '매일') return false;            // 매일 반복은 캘린더 표시 제외
   const anchor = r.anchor_date || (r.created_at || '').slice(0, 10);
   if (!anchor || ymd < anchor) return false;
+  if (rep === '매년') return yearlyOccursOn(anchor, ymd);
+  if (rep === '분기별') return quarterlyOccursOn(anchor, ymd);
   if (rep === '매월') return monthlyOccursOn(anchor, ymd);
   const step = rep === '2주마다' ? 14 : 7;
   return diffDays(anchor, ymd) % step === 0;
@@ -1122,6 +1185,17 @@ function routineOccurrenceDone(r, ymd) {
     const ny = m === 12 ? y + 1 : y, nm = m === 12 ? 1 : m + 1;
     const last = new Date(ny, nm, 0).getDate();
     nextOcc = `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(dayN, last)).padStart(2, '0')}`;
+  } else if (rep === '분기별') {
+    const [y, m] = ymd.split('-').map(Number);
+    const dayN = Number((r.anchor_date || ymd).slice(8, 10));
+    let nm = m + 3, ny = y; if (nm > 12) { nm -= 12; ny++; }
+    const last = new Date(ny, nm, 0).getDate();
+    nextOcc = `${ny}-${String(nm).padStart(2, '0')}-${String(Math.min(dayN, last)).padStart(2, '0')}`;
+  } else if (rep === '매년') {
+    const [y, m] = ymd.split('-').map(Number);
+    const dayN = Number((r.anchor_date || ymd).slice(8, 10));
+    const last = new Date(y + 1, m, 0).getDate();
+    nextOcc = `${y + 1}-${String(m).padStart(2, '0')}-${String(Math.min(dayN, last)).padStart(2, '0')}`;
   } else return false;
   return state.tasks.some(t => t.routine_id === r.id && t.done && t.date >= ymd && t.date < nextOcc);
 }
@@ -1547,6 +1621,8 @@ function openRoutineModal() {
         <option value="매주">매주</option>
         <option value="2주마다">2주마다</option>
         <option value="매월">매월</option>
+        <option value="분기별">분기별 (3개월마다)</option>
+        <option value="매년">매년</option>
       </select>
       <div id="rtAnchorWrap" class="row" style="display:none;flex:1;min-width:200px">
         <span class="muted">시작일(기준):</span>
@@ -1555,7 +1631,7 @@ function openRoutineModal() {
       <button class="btn sm" onclick="addRoutine()">추가</button>
     </div>
     <label class="pick" style="margin-top:8px;font-size:13px"><input type="checkbox" id="rtCal" checked> 📅 월간 캘린더에 표시 (매일 반복은 표시되지 않아요)</label>
-    <p class="muted" style="margin:6px 0 0">예) "2주마다 + 시작일 7/10" → 7/10, 7/24, 8/7… / "매월 + 시작일 7/25" → 매월 25일</p>
+    <p class="muted" style="margin:6px 0 0">예) "2주마다 + 시작일 7/10" → 7/10, 7/24, 8/7… / "매월 + 시작일 7/25" → 매월 25일 / "분기별 + 시작일 1/5" → 1/5, 4/5, 7/5, 10/5 / "매년 + 시작일 3/2" → 매년 3월 2일</p>
     <label>등록된 고정 업무</label>
     <div class="off-list">${items}</div>
     <div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>`);
