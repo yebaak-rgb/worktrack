@@ -187,9 +187,7 @@ li.routine-fixed .task-check.rf{width:21px;height:21px;min-width:21px;background
 li.routine-fixed.rdone .task-check.rf{background:var(--ok);border-color:var(--ok);color:#fff;}
 li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub);}
 .chip{font-size:11.5px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap;}
-.chip.p-high{background:#fdecec;color:var(--danger);}
-.chip.p-mid{background:#fff4e0;color:#b97d0e;}
-.chip.p-low{background:#e8f6ef;color:var(--ok);}
+
 .chip.carry{background:var(--accent-soft);color:var(--accent);}
 .chip.routine{background:#eefafd;color:#0e7f9c;}
 .chip.meet{background:#f1e9ff;color:#7c4dcc;cursor:pointer;}
@@ -480,9 +478,8 @@ audio{width:100%;max-width:420px;height:38px;}
         <ul class="task-list" id="dayTasks"></ul>
         <div class="add-inline">
           <input type="text" id="newTaskTitle" placeholder="할 일 입력 후 Enter" onkeydown="if(event.key==='Enter')addTask()">
-          <select id="newTaskPri"><option value="높음">🔴 높음</option><option value="중간" selected>🟡 중간</option><option value="낮음">🟢 낮음</option></select>
           <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="newTaskDue"></label>
-          <label class="event-inline" title="일정으로 등록 (휴무일에도 이 날짜에 고정, 자동이월 안 됨)"><input type="checkbox" id="newTaskEvent">📅 일정</label>
+          <label class="event-inline" title="선택하면 이 날짜에 고정되며 휴무일 이동·자동이월에서 제외됩니다"><input type="checkbox" id="newTaskEvent">📌 날짜 고정</label>
           <button class="btn" onclick="addTask()">추가</button>
         </div>
       </div>
@@ -969,15 +966,11 @@ async function removeTeamMember(email) {
 
 /* ================= 공통: 업무 조작 ================= */
 function tasksOf(ymd) { return state.tasks.filter(t => t.date === ymd); }
-function priOrder(p) { return p === '높음' ? 0 : p === '중간' ? 1 : 2; }
-// 정렬: 미완료 우선 → 수동 순서(sort) → 우선순위
-function taskSort(a, b) { return (a.done - b.done) || ((a.sort || 0) - (b.sort || 0)) || (priOrder(a.priority) - priOrder(b.priority)); }
+// 정렬: 미완료 우선 → 수동 순서(sort)
+function taskSort(a, b) { return (a.done - b.done) || ((a.sort || 0) - (b.sort || 0)); }
 // 주간용: 반복(고정) 업무를 맨 위로, 그 다음 일반 정렬
 function weekTaskSort(a, b) { return ((b.routine_id ? 1 : 0) - (a.routine_id ? 1 : 0)) || taskSort(a, b); }
-function priChip(p) {
-  const cls = p === '높음' ? 'p-high' : p === '중간' ? 'p-mid' : 'p-low';
-  return `<span class="chip ${cls}">${esc(p)}</span>`;
-}
+
 function ddayChip(due) {
   if (!due) return '';
   const n = diffDays(todayStr(), due);
@@ -1005,7 +998,7 @@ async function addTask() {
   const title = input.value.trim(); if (!title) return;
   const due = document.getElementById('newTaskDue');
   const isEvent = document.getElementById('newTaskEvent').checked;
-  await createTask(title, curDate, document.getElementById('newTaskPri').value, due.value || null, isEvent);
+  await createTask(title, curDate, '중간', due.value || null, isEvent);
   input.value = ''; due.value = ''; input.focus();
 }
 async function addTaskQuick(inputId) {
@@ -1055,13 +1048,7 @@ function openTaskModal(id) {
     <label>업무명</label><input id="tmTitle" value="${esc(t.title)}">
     <label>날짜</label><input id="tmDate" type="date" value="${t.date}">
     <label>마감기한 (선택)</label><input id="tmDue" type="date" value="${t.due_date || ''}">
-    <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}> 📅 일정으로 지정 (휴무일에도 이 날짜에 고정, 자동이월 안 함)</label>
-    <label>우선순위</label>
-    <select id="tmPri">
-      <option ${t.priority === '높음' ? 'selected' : ''}>높음</option>
-      <option ${t.priority === '중간' ? 'selected' : ''}>중간</option>
-      <option ${t.priority === '낮음' ? 'selected' : ''}>낮음</option>
-    </select>
+    <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}> 📌 날짜 고정 (휴무일 이동·자동이월에서 제외)</label>
     <label>비고</label><textarea id="tmNote" rows="2">${esc(t.note || '')}</textarea>
     ${linked.length ? `<label>연결된 회의</label><div class="linked-chips">${linked.map(m =>
       `<span class="chip meet" onclick="closeModal();openMeetingModal('${m.id}')">🎙️ ${esc(m.title)}</span>`).join('')}</div>` : ''}
@@ -1081,7 +1068,7 @@ async function saveTaskModal(id) {
   }
   const upd = {
     title: document.getElementById('tmTitle').value.trim() || t.title,
-    date, priority: document.getElementById('tmPri').value,
+    date,
     note: document.getElementById('tmNote').value.trim(),
     due_date: document.getElementById('tmDue').value || null,
     is_event: isEvent,
@@ -1100,11 +1087,10 @@ function taskLi(t, withOrder) {
     <div class="task-title ${t.done ? 'done' : ''}" onclick="openTaskModal('${t.id}')">
       ${esc(t.title)}${t.note ? `<span class="note">${esc(t.note)}</span>` : ''}
     </div>
-    ${t.is_event ? '<span class="chip event">📅 일정</span>' : ''}
+    ${t.is_event ? '<span class="chip event">📌 날짜 고정</span>' : ''}
     ${t.routine_id ? '<span class="chip routine">🔁</span>' : ''}
     ${t.carried_over ? '<span class="chip carry">이월</span>' : ''}
     ${ddayChip(t.due_date)}
-    ${priChip(t.priority)}
     <button class="icon-btn" onclick="openTaskModal('${t.id}')" title="수정 (마감기한·날짜·비고)">✏️</button>
     <button class="icon-btn" onclick="delTask('${t.id}')" title="삭제">✕</button>`;
   return li;
@@ -1847,8 +1833,7 @@ function openRoutineModal() {
         <span style="${r.active ? '' : 'color:var(--sub);text-decoration:line-through'}">🔁 ${esc(r.title)}</span>
       </label>
       ${repBadge(r)}
-      ${priChip(r.priority)}
-      ${(r.repeat_every && r.repeat_every !== '매일') ? `<button class="icon-btn" onclick="toggleRoutineCal('${r.id}')" title="월간 캘린더 표시 켜기/끄기">${r.show_on_calendar !== false ? '📅' : '🚫'}</button>` : ''}
+      ${(r.repeat_every && r.repeat_every !== '매일') ? `<button class="btn sm ${r.show_on_calendar !== false ? 'soft' : 'ghost'}" onclick="toggleRoutineCal('${r.id}')" title="월간 캘린더 표시 켜기/끄기">${r.show_on_calendar !== false ? '📅 월간 표시' : '월간 숨김'}</button>` : ''}
       <button class="icon-btn" onclick="openRoutineEditModal('${r.id}')" title="고정 업무 수정">✏️</button>
       <button class="icon-btn" onclick="delRoutine('${r.id}')">✕</button>
     </div>`).join('') || '<div class="muted">고정 업무가 없어요.</div>';
@@ -1858,7 +1843,6 @@ function openRoutineModal() {
     <label>새 고정 업무</label>
     <div class="row">
       <input type="text" id="rtTitle" placeholder="예: 메일 확인, 월간 보고" style="flex:1;min-width:150px" onkeydown="if(event.key==='Enter')addRoutine()">
-      <select id="rtPri" style="width:auto"><option value="높음">🔴 높음</option><option value="중간" selected>🟡 중간</option><option value="낮음">🟢 낮음</option></select>
     </div>
     <div class="row" style="margin-top:8px">
       <select id="rtRep" style="width:auto" onchange="document.getElementById('rtAnchorWrap').style.display=this.value==='매일'?'none':'flex'">
@@ -1884,7 +1868,7 @@ function openRoutineModal() {
 async function addRoutine() {
   const title = document.getElementById('rtTitle').value.trim();
   if (!title) return toast('업무명을 입력하세요.');
-  const priority = document.getElementById('rtPri').value;
+  const priority = '중간';
   const repeat_every = document.getElementById('rtRep').value;
   const anchor_date = repeat_every === '매일' ? null : (document.getElementById('rtAnchor').value || todayStr());
   const show_on_calendar = (document.getElementById('rtCal') || {}).checked !== false;
@@ -1903,12 +1887,6 @@ function openRoutineEditModal(id) {
     <h3>✏️ 고정 업무 수정</h3>
     <label>업무명</label>
     <input type="text" id="ertTitle" value="${esc(r.title)}" onkeydown="if(event.key==='Enter')saveRoutineEdit('${r.id}')">
-    <label>중요도</label>
-    <select id="ertPri">
-      <option value="높음" ${r.priority === '높음' ? 'selected' : ''}>🔴 높음</option>
-      <option value="중간" ${r.priority === '중간' ? 'selected' : ''}>🟡 중간</option>
-      <option value="낮음" ${r.priority === '낮음' ? 'selected' : ''}>🟢 낮음</option>
-    </select>
     <label>반복 주기</label>
     <select id="ertRep" onchange="document.getElementById('ertAnchorWrap').style.display=this.value==='매일'?'none':'block'">
       ${opt('매일', '매일 (근무일마다)')}${opt('매주', '매주')}${opt('2주마다', '2주마다')}${opt('매월', '매월')}${opt('분기별', '분기별 (3개월마다)')}${opt('매년', '매년')}
@@ -1934,7 +1912,6 @@ async function saveRoutineEdit(id) {
   const scheduleChanged = repeat_every !== (r.repeat_every || '매일') || anchor_date !== (r.anchor_date || null);
   const row = {
     title,
-    priority: document.getElementById('ertPri').value,
     repeat_every,
     anchor_date,
     show_on_calendar: document.getElementById('ertCal').checked,
