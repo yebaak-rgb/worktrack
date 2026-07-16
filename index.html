@@ -113,6 +113,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .dash-today .task-list{flex:1 1 auto;min-height:0;}
 .dash-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 /* 대시보드 월간(제목 표시) */
+.dash-month-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.dash-month-head h3{margin:0;}
+.dash-month-nav{display:flex;align-items:center;gap:4px;margin-left:4px;}
+.dash-month-nav button{height:28px;border:1px solid var(--line);background:var(--card);border-radius:7px;padding:0 9px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;}
+.dash-month-nav button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+.dash-month-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.dash-month-title{min-width:72px;text-align:center;font-size:13px;font-weight:800;}
+.dash-month-head .mini{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer;}
 .dash-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
 .dash-month .dmdow{text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;padding:2px 0;}
 .dash-month .dmcell{min-height:74px;border:1px solid var(--line);border-radius:8px;padding:4px 5px;cursor:pointer;font-size:11px;overflow:hidden;}
@@ -393,7 +401,16 @@ audio{width:100%;max-width:420px;height:38px;}
     <section id="view-dash">
       <div class="dash-top">
         <div class="card">
-          <h3>📅 월간 캘린더 <span class="mini" onclick="switchView('month')">전체 ›</span></h3>
+          <div class="dash-month-head">
+            <h3>📅 월간 캘린더</h3>
+            <div class="dash-month-nav" aria-label="대시보드 월 선택">
+              <button type="button" onclick="moveDashMonth(-1)" aria-label="이전 달" title="이전 달">‹</button>
+              <span class="dash-month-title" id="dashMonthTitle"></span>
+              <button type="button" onclick="goThisDashMonth()" title="이번 달로 이동">오늘</button>
+              <button type="button" onclick="moveDashMonth(1)" aria-label="다음 달" title="다음 달">›</button>
+            </div>
+            <span class="mini" onclick="openDashMonthFull()">전체 ›</span>
+          </div>
           <div class="dash-month" id="dashMonth"></div>
         </div>
         <div class="card dash-today">
@@ -540,6 +557,7 @@ let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], con
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
+let dashMonth = todayStr().slice(0, 7);
 let daySortable = null;
 
 function getConfig() {
@@ -1064,11 +1082,27 @@ function taskLi(t, withOrder) {
 }
 
 /* ================= 대시보드 ================= */
-// 대시보드 미니 월간 캘린더 (이번 달, 점=업무/회의/공동일정)
+// 대시보드 미니 월간 캘린더 (선택한 달, 회의/공동일정)
+function moveDashMonth(n) {
+  const [y, m] = dashMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  dashMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  renderDashMonth();
+}
+function goThisDashMonth() {
+  dashMonth = todayStr().slice(0, 7);
+  renderDashMonth();
+}
+function openDashMonthFull() {
+  curMonth = dashMonth;
+  switchView('month');
+}
 function renderDashMonth() {
   const box = document.getElementById('dashMonth'); if (!box) return;
-  const ym = todayStr().slice(0, 7);
+  const ym = dashMonth;
   const [y, m] = ym.split('-').map(Number);
+  const title = document.getElementById('dashMonthTitle');
+  if (title) title.textContent = `${y}년 ${m}월`;
   let html = ['일', '월', '화', '수', '목', '금', '토'].map(d => `<div class="dmdow">${d}</div>`).join('');
   let d = addDays(`${ym}-01`, -dowOf(`${ym}-01`));   // 일요일 시작
   const last = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
