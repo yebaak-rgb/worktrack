@@ -275,8 +275,11 @@ audio{width:100%;max-width:420px;height:38px;}
 .modal{background:#fff;border-radius:18px;width:100%;max-width:560px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,.2);}
 .modal h3{margin:0 0 16px;font-size:17px;}
 .modal label{font-size:13px;font-weight:600;color:var(--sub);display:block;margin:12px 0 5px;}
-.modal label.event-check{display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--text);}
-.modal label.event-check input{margin:0;}
+.modal label.event-check{display:flex;align-items:flex-start;gap:10px;cursor:pointer;color:var(--text);padding:11px 12px;margin:12px 0 5px;border:1px solid var(--line);border-radius:10px;background:var(--bg);}
+.modal label.event-check input{width:18px;height:18px;min-width:18px;flex:none;margin:1px 0 0;cursor:pointer;}
+.modal label.event-check span{display:block;line-height:1.35;}
+.modal label.event-check b{display:block;font-size:13.5px;color:var(--text);}
+.modal label.event-check small{display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--sub);}
 .modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;flex-wrap:wrap;}
 .modal .foot .left{margin-right:auto;}
 .task-pick{max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:6px;}
@@ -1050,7 +1053,7 @@ function openTaskModal(id) {
     <label>업무명</label><input id="tmTitle" value="${esc(t.title)}">
     <label>날짜</label><input id="tmDate" type="date" value="${t.date}">
     <label>마감기한 (선택)</label><input id="tmDue" type="date" value="${t.due_date || ''}">
-    <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}> 📌 날짜 고정 (휴무일 이동·자동이월에서 제외)</label>
+    <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}><span><b>📌 날짜 고정</b><small>휴무일 이동과 자동 이월에서 제외합니다.</small></span></label>
     <label>비고</label><textarea id="tmNote" rows="2">${esc(t.note || '')}</textarea>
     ${linked.length ? `<label>연결된 회의</label><div class="linked-chips">${linked.map(m =>
       `<span class="chip meet" onclick="closeModal();openMeetingModal('${m.id}')">🎙️ ${esc(m.title)}</span>`).join('')}</div>` : ''}
