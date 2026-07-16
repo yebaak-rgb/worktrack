@@ -694,7 +694,7 @@ async function startApp() {
   renderAll();
 }
 async function loadAll() {
-  const [t, m, mt, off, rt, ct, st, tm, se, pe] = await Promise.all([
+  const [t, m, mt, off, rt, ct, st, tm, se] = await Promise.all([
     sb.from('tasks').select('*').order('sort').order('created_at'),
     sb.from('memos').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false }),
     sb.from('meetings').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
@@ -704,7 +704,6 @@ async function loadAll() {
     sb.from('settings').select('*').maybeSingle(),
     sb.from('team_members').select('*').order('email'),
     sb.from('shared_events').select('*'),
-    sb.from('personal_events').select('*'),
   ]);
   for (const r of [t, m, mt, off, rt, ct]) {
     if (r.error) { toast('데이터 로드 오류: ' + r.error.message); console.error(r.error); }
@@ -722,7 +721,12 @@ async function loadAll() {
   state.teamMembers = (tm && tm.data) || [];
   state.isAdmin = !!(user && user.email && state.teamMembers.some(x => x.email === user.email && x.is_admin));
   state.sharedEvents = (se && se.data) || [];
-  state.personalEvents = (pe && pe.data) || [];
+  state.personalEvents = [];
+  try {
+    const pe = await sb.from('personal_events').select('*');
+    if (pe.error) console.warn('개인 일정 불러오기:', pe.error.message);
+    else state.personalEvents = pe.data || [];
+  } catch (e) { console.warn('개인 일정 불러오기 실패:', e); }
   state.isTeamMember = !!(user && user.email && state.teamMembers.some(x => x.email === user.email));
 }
 /* 날짜별 회의·공동일정 (시간순) */
