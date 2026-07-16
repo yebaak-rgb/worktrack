@@ -88,10 +88,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .memo-card.pinned{background:#fff3f0;border-color:#f3cfc4;}
 /* 메모 아코디언: 접힘=첫 줄만, 펼침=전체 */
 .memo-card .m-row{display:flex;align-items:flex-start;gap:6px;cursor:pointer;}
-.memo-card .m-caret{color:var(--sub);font-size:10px;margin-top:4px;flex:none;transition:transform .15s;}
+.memo-card .m-caret{color:var(--sub);font-size:10px;margin-top:4px;flex:none;transition:transform .15s;cursor:pointer;}
 .memo-card.expanded .m-caret{transform:rotate(90deg);}
-.memo-card .content{flex:1;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.memo-card.expanded .content{white-space:pre-wrap;word-break:break-word;}
+.memo-card .content{flex:1;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:text;}
+.memo-card.expanded .content{white-space:pre-wrap;word-break:break-word;overflow:visible;}
+.memo-card.locked{background:#f4f1ff;border-color:#dcd4f7;}
+.memo-card.locked .content{color:#65558f;font-weight:600;cursor:pointer;}
+.memo-lock-toggle{flex:none;width:38px;border:1px solid var(--line);border-radius:9px;background:#fff;}
+.memo-lock-toggle.on{background:#f1e9ff;color:#5b3aa8;border-color:#cfc0f1;}
 .memo-card .meta{font-size:11px;color:var(--sub);margin-top:7px;display:none;justify-content:space-between;align-items:center;}
 .memo-card.expanded .meta{display:flex;}
 .icon-btn{border:none;background:transparent;color:var(--sub);cursor:pointer;font-size:15px;padding:3px;}
@@ -121,9 +125,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .dash-month-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
 .dash-month-title{min-width:72px;text-align:center;font-size:13px;font-weight:800;}
 .dash-month-head .mini{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer;}
-.dash-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.dash-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;width:100%;}
 .dash-month .dmdow{text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;padding:2px 0;}
-.dash-month .dmcell{min-height:74px;border:1px solid var(--line);border-radius:8px;padding:4px 5px;cursor:pointer;font-size:11px;overflow:hidden;}
+.dash-month .dmcell{min-width:0;min-height:74px;border:1px solid var(--line);border-radius:8px;padding:4px 5px;cursor:pointer;font-size:11px;overflow:hidden;}
 .dash-month .dmcell:hover{border-color:var(--accent);}
 .dash-month .dmcell.dim{opacity:.4;}
 .dash-month .dmcell.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
@@ -223,16 +227,16 @@ li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub)
 .off-tag{font-size:11px;color:#b08a2e;font-weight:700;}
 
 /* ===== 월간 ===== */
-.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
-.month-grid .dow{text-align:center;font-size:12.5px;font-weight:700;color:var(--sub);padding:4px 0;}
-.mcell{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:92px;padding:6px;cursor:pointer;font-size:12px;}
+.month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%;}
+.month-grid .dow{min-width:0;text-align:center;font-size:12.5px;font-weight:700;color:var(--sub);padding:4px 0;}
+.mcell{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:92px;padding:6px;cursor:pointer;font-size:12px;overflow:hidden;}
 .mcell:hover{border-color:var(--accent);}
 .mcell.dim{opacity:.4;}
 .mcell.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
 .mcell.off{background:#fbf6ec;}
 .mcell .dnum{font-weight:700;font-size:12.5px;margin-bottom:3px;display:flex;justify-content:space-between;}
 .mcell .mt{background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:1px 5px;margin-bottom:2px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  display:block;width:100%;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .mcell .mt.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
 .mcell .mt.routine-mark{background:#eefafd;color:#0e7f9c;}
 .mcell .mt.routine-mark.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
@@ -484,7 +488,8 @@ audio{width:100%;max-width:420px;height:38px;}
     <section id="view-week" class="hidden">
       <div class="day-nav">
         <button class="nav-btn" onclick="moveWeek(-1)">‹</button>
-        <h2 id="weekTitle"></h2>
+        <h2 id="weekTitle" class="day-title-btn" onclick="openWeekPicker()" title="이동할 주 선택 (클릭)"></h2>
+        <input type="date" id="weekDatePicker" onchange="jumpToWeek(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
         <button class="nav-btn" onclick="moveWeek(1)">›</button>
         <button class="btn soft sm" onclick="goThisWeek()">이번 주</button>
       </div>
@@ -495,7 +500,8 @@ audio{width:100%;max-width:420px;height:38px;}
     <section id="view-month" class="hidden">
       <div class="day-nav">
         <button class="nav-btn" onclick="moveMonth(-1)">‹</button>
-        <h2 id="monthTitle"></h2>
+        <h2 id="monthTitle" class="day-title-btn" onclick="openMonthPicker()" title="이동할 달 선택 (클릭)"></h2>
+        <input type="date" id="monthDatePicker" onchange="jumpToMonth(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
         <button class="nav-btn" onclick="moveMonth(1)">›</button>
         <button class="btn soft sm" onclick="goThisMonth()">이번 달</button>
       </div>
@@ -535,6 +541,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <option value="업무" selected>💼</option>
       </select>
       <input type="text" id="newMemo" placeholder="메모 입력 (Enter)" onkeydown="if(event.key==='Enter')addMemo()">
+      <button type="button" class="icon-btn memo-lock-toggle" id="newMemoLock" onclick="toggleNewMemoLock()" title="잠금 메모로 저장">🔓</button>
       <button class="btn sm" onclick="addMemo()">＋</button>
     </div>
     <div id="memoList" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -1297,6 +1304,17 @@ function eventRow(kind, x) {
 /* ================= 주간 ================= */
 function moveWeek(n) { curWeekStart = addDays(curWeekStart, n * 7); renderWeek(); }
 function goThisWeek() { curWeekStart = weekStart(todayStr()); renderWeek(); }
+function openWeekPicker() {
+  const inp = document.getElementById('weekDatePicker');
+  if (!inp) return;
+  inp.value = curWeekStart;
+  try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+}
+function jumpToWeek(v) {
+  if (!v) return;
+  curWeekStart = weekStart(v);
+  renderWeek();
+}
 function renderWeek() {
   const end = addDays(curWeekStart, 5); // 월~토 표시
   document.getElementById('weekTitle').textContent = `${fmtKo(curWeekStart)} ~ ${fmtKo(end)}`;
@@ -1336,6 +1354,17 @@ function moveMonth(n) {
   renderMonth();
 }
 function goThisMonth() { curMonth = todayStr().slice(0, 7); renderMonth(); }
+function openMonthPicker() {
+  const inp = document.getElementById('monthDatePicker');
+  if (!inp) return;
+  inp.value = `${curMonth}-01`;
+  try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+}
+function jumpToMonth(v) {
+  if (!v) return;
+  curMonth = v.slice(0, 7);
+  renderMonth();
+}
 function renderMonth() {
   const [y, m] = curMonth.split('-').map(Number);
   document.getElementById('monthTitle').textContent = `${y}년 ${m}월`;
@@ -1379,28 +1408,114 @@ function setMemoFilter(cat) {
 function catChip(c) {
   return c === '업무' ? '<span class="chip cat-w">💼 업무</span>' : '<span class="chip cat-p">🙂 개인</span>';
 }
+const MEMO_LOCK_PREFIX = '🔐v1:';
+const unlockedMemoContent = new Map();
+let newMemoLocked = false;
+let memoPasswordResolve = null;
+function isLockedMemo(m) { return !!(m && typeof m.content === 'string' && m.content.startsWith(MEMO_LOCK_PREFIX)); }
+function toggleNewMemoLock() {
+  newMemoLocked = !newMemoLocked;
+  const btn = document.getElementById('newMemoLock');
+  if (btn) { btn.textContent = newMemoLocked ? '🔒' : '🔓'; btn.classList.toggle('on', newMemoLocked); btn.title = newMemoLocked ? '잠금 메모로 저장됨' : '잠금 메모로 저장'; }
+}
+function bytesToB64(bytes) {
+  let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s);
+}
+function b64ToBytes(s) {
+  const raw = atob(s); return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+async function memoKey(password, salt) {
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encryptMemoContent(content, password) {
+  if (!crypto.subtle) throw new Error('이 브라우저는 메모 암호화를 지원하지 않습니다.');
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await memoKey(password, salt);
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(content)));
+  return MEMO_LOCK_PREFIX + [bytesToB64(salt), bytesToB64(iv), bytesToB64(encrypted)].join(':');
+}
+async function decryptMemoContent(value, password) {
+  const parts = value.slice(MEMO_LOCK_PREFIX.length).split(':');
+  if (parts.length !== 3) throw new Error('잠금 메모 형식이 올바르지 않습니다.');
+  const salt = b64ToBytes(parts[0]), iv = b64ToBytes(parts[1]), encrypted = b64ToBytes(parts[2]);
+  const key = await memoKey(password, salt);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted));
+}
+function requestMemoPassword(confirmMode = false) {
+  return new Promise(resolve => {
+    memoPasswordResolve = resolve;
+    openModal(`
+      <h3>🔒 메모 비밀번호 ${confirmMode ? '설정' : '입력'}</h3>
+      <p class="muted" style="margin:0 0 10px">${confirmMode ? '비밀번호를 잊으면 잠긴 메모를 복구할 수 없습니다.' : '이 메모를 열려면 저장할 때 설정한 비밀번호를 입력하세요.'}</p>
+      <label>비밀번호</label><input type="password" id="memoPw" autocomplete="off" onkeydown="if(event.key==='Enter')submitMemoPassword(${confirmMode})">
+      ${confirmMode ? '<label>비밀번호 확인</label><input type="password" id="memoPw2" autocomplete="off" onkeydown="if(event.key===\'Enter\')submitMemoPassword(true)">' : ''}
+      <div class="foot"><button class="btn ghost" onclick="cancelMemoPassword()">취소</button><button class="btn" onclick="submitMemoPassword(${confirmMode})">확인</button></div>`);
+    setTimeout(() => document.getElementById('memoPw')?.focus(), 0);
+  });
+}
+function submitMemoPassword(confirmMode) {
+  const pw = document.getElementById('memoPw').value;
+  if (pw.length < 4) return toast('비밀번호를 4자 이상 입력하세요.');
+  if (confirmMode && pw !== document.getElementById('memoPw2').value) return toast('비밀번호가 일치하지 않습니다.');
+  const resolve = memoPasswordResolve; memoPasswordResolve = null; closeModal(); if (resolve) resolve(pw);
+}
+function cancelMemoPassword() {
+  const resolve = memoPasswordResolve; memoPasswordResolve = null; closeModal(); if (resolve) resolve(null);
+}
+async function readableMemoContent(m) {
+  if (!isLockedMemo(m)) return m.content;
+  if (unlockedMemoContent.has(m.id)) return unlockedMemoContent.get(m.id);
+  const pw = await requestMemoPassword(false); if (!pw) return null;
+  try {
+    const plain = await decryptMemoContent(m.content, pw); unlockedMemoContent.set(m.id, plain); return plain;
+  } catch (e) { toast('비밀번호가 맞지 않습니다.'); return null; }
+}
 async function addMemo() {
   const input = document.getElementById('newMemo');
-  const content = input.value.trim(); if (!content) return;
+  const plain = input.value.trim(); if (!plain) return;
   const category = document.getElementById('newMemoCat').value;
+  let content = plain;
+  if (newMemoLocked) {
+    const pw = await requestMemoPassword(true); if (!pw) return;
+    try { content = await encryptMemoContent(plain, pw); } catch (e) { return toast(e.message); }
+  }
   const { data, error } = await sb.from('memos')
     .insert({ user_id: user.id, content, pinned: false, category }).select().single();
   if (error) return toast('메모 추가 실패: ' + error.message);
-  state.memos.unshift(data); input.value = ''; renderMemos();
+  state.memos.unshift(data);
+  if (newMemoLocked) unlockedMemoContent.set(data.id, plain);
+  input.value = '';
+  if (newMemoLocked) { newMemoLocked = false; const btn = document.getElementById('newMemoLock'); if (btn) { btn.textContent = '🔓'; btn.classList.remove('on'); } }
+  renderMemos();
 }
-function toggleMemoExpand(el) { el.closest('.memo-card').classList.toggle('expanded'); }
+function toggleMemoExpand(el) {
+  const selected = window.getSelection && window.getSelection().toString().trim();
+  if (selected) return;
+  el.closest('.memo-card').classList.toggle('expanded');
+}
+async function unlockMemo(id) {
+  const m = state.memos.find(x => x.id === id); if (!m) return;
+  const plain = await readableMemoContent(m); if (plain === null) return;
+  renderMemos();
+  setTimeout(() => document.querySelector(`.memo-card[data-id="${id}"]`)?.classList.add('expanded'), 0);
+}
 function renderMemos() {
   const grid = document.getElementById('memoList');
   const filtered = state.memos.filter(m => memoFilter === '전체' || (m.category || '개인') === memoFilter);
   const sorted = [...filtered].sort((a, b) => (b.pinned - a.pinned) || (b.updated_at > a.updated_at ? 1 : -1));
   grid.innerHTML = sorted.length ? '' : '<div class="muted">메모가 없어요.</div>';
   for (const m of sorted) {
+    const locked = isLockedMemo(m), revealed = unlockedMemoContent.has(m.id);
+    const visible = locked ? (revealed ? unlockedMemoContent.get(m.id) : '🔒 잠긴 메모') : m.content;
     const card = document.createElement('div');
-    card.className = 'memo-card' + (m.pinned ? ' pinned' : '');
+    card.className = 'memo-card' + (m.pinned ? ' pinned' : '') + (locked ? ' locked' : '');
+    card.dataset.id = m.id;
     card.innerHTML = `
-      <div class="m-row" onclick="toggleMemoExpand(this)"><span class="m-caret">▸</span><div class="content">${esc(m.content)}</div></div>
+      <div class="m-row" onclick="${locked && !revealed ? `unlockMemo('${m.id}')` : 'toggleMemoExpand(this)'}"><span class="m-caret">${locked && !revealed ? '🔒' : '▸'}</span><div class="content">${esc(visible)}</div></div>
       <div class="meta">
-        <span>${catChip(m.category || '개인')} ${(m.updated_at || '').slice(5, 10).replace('-', '/')}</span>
+        <span>${catChip(m.category || '개인')} ${locked ? '<span class="chip routine">🔒 암호화</span>' : ''} ${(m.updated_at || '').slice(5, 10).replace('-', '/')}</span>
         <span>
           <button class="icon-btn" title="수정" onclick="editMemo('${m.id}')">✏️</button>
           <button class="icon-btn" title="고정" onclick="pinMemo('${m.id}')">${m.pinned ? '📌' : '📍'}</button>
@@ -1412,6 +1527,7 @@ function renderMemos() {
 }
 async function editMemo(id) {
   const m = state.memos.find(x => x.id === id); if (!m) return;
+  const content = await readableMemoContent(m); if (content === null) return;
   const cat = m.category || '개인';
   openModal(`
     <h3>메모 수정</h3>
@@ -1421,7 +1537,9 @@ async function editMemo(id) {
       <option value="업무" ${cat === '업무' ? 'selected' : ''}>💼 업무 메모</option>
     </select>
     <label>내용</label>
-    <textarea id="memoEdit" rows="6">${esc(m.content)}</textarea>
+    <textarea id="memoEdit" rows="6">${esc(content)}</textarea>
+    <label class="pick" style="margin-top:10px"><input type="checkbox" id="memoEditLocked" ${isLockedMemo(m) ? 'checked' : ''}> 🔒 암호화하여 잠그기</label>
+    <p class="muted" style="margin:6px 0 0">잠금을 선택하면 저장할 때 비밀번호를 설정합니다.</p>
     <div class="foot">
       <button class="btn ghost" onclick="closeModal()">취소</button>
       <button class="btn" onclick="saveMemo('${id}')">저장</button>
@@ -1429,12 +1547,20 @@ async function editMemo(id) {
 }
 async function saveMemo(id) {
   const m = state.memos.find(x => x.id === id); if (!m) return;
-  const content = document.getElementById('memoEdit').value.trim();
+  const plain = document.getElementById('memoEdit').value.trim();
   const category = document.getElementById('memoEditCat').value;
+  const shouldLock = document.getElementById('memoEditLocked').checked;
+  let content = plain;
+  if (shouldLock) {
+    const pw = await requestMemoPassword(true); if (!pw) return;
+    try { content = await encryptMemoContent(plain, pw); } catch (e) { return toast(e.message); }
+  }
   const upd = { content, category, updated_at: new Date().toISOString() };
   const { error } = await sb.from('memos').update(upd).eq('id', id);
   if (error) return toast('저장 실패: ' + error.message);
-  Object.assign(m, upd); closeModal(); renderMemos();
+  Object.assign(m, upd);
+  shouldLock ? unlockedMemoContent.set(id, plain) : unlockedMemoContent.delete(id);
+  closeModal(); renderMemos();
 }
 async function pinMemo(id) {
   const m = state.memos.find(x => x.id === id); if (!m) return;
@@ -1949,7 +2075,10 @@ function openModal(html) {
   const root = document.getElementById('modalRoot');
   root.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;
 }
-function closeModal() { stopRecCleanup(); document.getElementById('modalRoot').innerHTML = ''; }
+function closeModal() {
+  if (memoPasswordResolve) { const resolve = memoPasswordResolve; memoPasswordResolve = null; resolve(null); }
+  stopRecCleanup(); document.getElementById('modalRoot').innerHTML = '';
+}
 let toastTimer = null;
 function toast(msg) {
   const t = document.getElementById('toast');
