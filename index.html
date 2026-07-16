@@ -123,7 +123,9 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .dash-month-nav button{height:28px;border:1px solid var(--line);background:var(--card);border-radius:7px;padding:0 9px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;}
 .dash-month-nav button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
 .dash-month-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
-.dash-month-title{min-width:72px;text-align:center;font-size:13px;font-weight:800;}
+.dash-month-title{min-width:72px;text-align:center;font-size:13px;font-weight:800;cursor:pointer;border-radius:6px;padding:3px 5px;}
+.dash-month-title:hover{background:var(--accent-soft);color:var(--accent);}
+.dash-month-title::after{content:' ▾';font-size:10px;color:var(--sub);}
 .dash-month-head .mini{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer;}
 .dash-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;width:100%;}
 .dash-month .dmdow{text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;padding:2px 0;}
@@ -409,7 +411,8 @@ audio{width:100%;max-width:420px;height:38px;}
             <h3>📅 월간 캘린더</h3>
             <div class="dash-month-nav" aria-label="대시보드 월 선택">
               <button type="button" onclick="moveDashMonth(-1)" aria-label="이전 달" title="이전 달">‹</button>
-              <span class="dash-month-title" id="dashMonthTitle"></span>
+              <span class="dash-month-title" id="dashMonthTitle" onclick="openDashMonthPicker()" title="이동할 달 선택"></span>
+              <input type="month" id="dashMonthPicker" onchange="jumpToDashMonth(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
               <button type="button" onclick="goThisDashMonth()" title="이번 달로 이동">오늘</button>
               <button type="button" onclick="moveDashMonth(1)" aria-label="다음 달" title="다음 달">›</button>
             </div>
@@ -460,10 +463,11 @@ audio{width:100%;max-width:420px;height:38px;}
       <div id="dayOffBanner" class="dayoff-banner hidden"></div>
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h3 style="margin:0">🎙️ 회의 · 공동일정</h3>
+          <h3 style="margin:0">📅 회의 · 공동 · 개인 일정</h3>
           <span style="display:flex;gap:6px">
             <button class="btn soft sm" onclick="openMeetingModal(null, curDate)">＋ 회의</button>
             <button class="btn soft sm" id="addSharedBtn" onclick="openSharedEventModal(null, curDate)" style="display:none">＋ 공동일정</button>
+            <button class="btn soft sm" onclick="openPersonalEventModal(null, curDate)">＋ 개인일정</button>
           </span>
         </div>
         <div id="dayEvents"></div>
@@ -501,7 +505,7 @@ audio{width:100%;max-width:420px;height:38px;}
       <div class="day-nav">
         <button class="nav-btn" onclick="moveMonth(-1)">‹</button>
         <h2 id="monthTitle" class="day-title-btn" onclick="openMonthPicker()" title="이동할 달 선택 (클릭)"></h2>
-        <input type="date" id="monthDatePicker" onchange="jumpToMonth(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
+        <input type="month" id="monthDatePicker" onchange="jumpToMonth(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
         <button class="nav-btn" onclick="moveMonth(1)">›</button>
         <button class="btn soft sm" onclick="goThisMonth()">이번 달</button>
       </div>
@@ -560,7 +564,7 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], isTeamMember: false };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], isTeamMember: false };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
@@ -608,13 +612,24 @@ function diffDays(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Dat
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 /* ================= 휴무일 로직 ================= */
+function offTypeOf(o) {
+  const m = (o && o.label || '').match(/^\[(연차|휴가|오전 반차|오후 반차|기타 휴무)\]/);
+  return m ? m[1] : '휴무';
+}
+function isPartialOffRecord(o) { return ['오전 반차', '오후 반차'].includes(offTypeOf(o)); }
+function partialOffOf(ymd) { return state.daysOff.find(o => o.date === ymd && isPartialOffRecord(o)) || null; }
+function offLabelText(o) {
+  const raw = (o && o.label || '휴무').trim();
+  const m = raw.match(/^\[([^\]]+)\]\s*(.*)$/);
+  return m ? `${m[1]}${m[2] ? ' · ' + m[2] : ''}` : raw;
+}
 function isDayOff(ymd) {
   if (state.weeklyOff.includes(dowOf(ymd))) return true;
-  return state.daysOff.some(o => o.date === ymd);
+  return state.daysOff.some(o => o.date === ymd && !isPartialOffRecord(o));
 }
 function dayOffLabel(ymd) {
   const o = state.daysOff.find(o => o.date === ymd);
-  if (o) return o.label || '휴무';
+  if (o) return offLabelText(o);
   if (state.weeklyOff.includes(dowOf(ymd))) return `매주 ${DOW_KO[dowOf(ymd)]}요일 휴무`;
   return '';
 }
@@ -679,7 +694,7 @@ async function startApp() {
   renderAll();
 }
 async function loadAll() {
-  const [t, m, mt, off, rt, ct, st, tm, se] = await Promise.all([
+  const [t, m, mt, off, rt, ct, st, tm, se, pe] = await Promise.all([
     sb.from('tasks').select('*').order('sort').order('created_at'),
     sb.from('memos').select('*').order('pinned', { ascending: false }).order('updated_at', { ascending: false }),
     sb.from('meetings').select('*').order('date', { ascending: false }).order('created_at', { ascending: false }),
@@ -689,6 +704,7 @@ async function loadAll() {
     sb.from('settings').select('*').maybeSingle(),
     sb.from('team_members').select('*').order('email'),
     sb.from('shared_events').select('*'),
+    sb.from('personal_events').select('*'),
   ]);
   for (const r of [t, m, mt, off, rt, ct]) {
     if (r.error) { toast('데이터 로드 오류: ' + r.error.message); console.error(r.error); }
@@ -706,6 +722,7 @@ async function loadAll() {
   state.teamMembers = (tm && tm.data) || [];
   state.isAdmin = !!(user && user.email && state.teamMembers.some(x => x.email === user.email && x.is_admin));
   state.sharedEvents = (se && se.data) || [];
+  state.personalEvents = (pe && pe.data) || [];
   state.isTeamMember = !!(user && user.email && state.teamMembers.some(x => x.email === user.email));
 }
 /* 날짜별 회의·공동일정 (시간순) */
@@ -1100,6 +1117,17 @@ function goThisDashMonth() {
   dashMonth = todayStr().slice(0, 7);
   renderDashMonth();
 }
+function openDashMonthPicker() {
+  const inp = document.getElementById('dashMonthPicker');
+  if (!inp) return;
+  inp.value = dashMonth;
+  try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+}
+function jumpToDashMonth(v) {
+  if (!v) return;
+  dashMonth = v;
+  renderDashMonth();
+}
 function openDashMonthFull() {
   curMonth = dashMonth;
   switchView('month');
@@ -1117,9 +1145,9 @@ function renderDashMonth() {
     if (d > last && dowOf(d) === 0) break;
     const inMonth = d.slice(0, 7) === ym;
     const off = isDayOff(d);
-    // 대시보드 월간 캘린더엔 회의·공동일정만 표시 (업무·고정업무 제외)
-    const items = meetingsOf(d).map(mm => `<div class="dmt dmt-meet">🎙️${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
-      .concat(sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`));
+    // 대시보드 월간 캘린더엔 공동일정·개인일정만 표시
+    const items = sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`)
+      .concat(personalOf(d).map(ev => `<div class="dmt dmt-personal">🌷${ev.start_time ? esc(ev.start_time) + ' ' : ''}${esc(ev.title)}</div>`));
     const cls = 'dmcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
     let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' 🏖️' : ''}</div>`;
     items.slice(0, 3).forEach(h => cellHtml += h);
@@ -1264,6 +1292,9 @@ function renderDay() {
   if (isDayOff(curDate)) {
     banner.textContent = `🏖️ ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 세미나 등 일정은 '📅 일정'을 체크하면 이 날짜에 그대로 등록돼요.`;
     banner.classList.remove('hidden');
+  } else if (partialOffOf(curDate)) {
+    banner.textContent = `🌓 ${dayOffLabel(curDate)} — 반차 일정입니다. 업무와 고정 업무는 이 날짜에 정상 배정됩니다.`;
+    banner.classList.remove('hidden');
   } else banner.classList.add('hidden');
   const list = tasksOf(curDate).sort(taskSort);
   // 이 날 도래하는 고정업무 중 아직 실제 업무로 안 만들어진 것 → 상단에 고정 표시
@@ -1282,22 +1313,26 @@ function renderDay() {
 function renderDayEvents(ymd) {
   const box = document.getElementById('dayEvents'); if (!box) return;
   const asb = document.getElementById('addSharedBtn'); if (asb) asb.style.display = state.isTeamMember ? '' : 'none';
-  const ms = meetingsOf(ymd), ses = sharedOf(ymd);
-  if (!ms.length && !ses.length) { box.innerHTML = '<div class="muted">등록된 회의·공동일정이 없어요.</div>'; return; }
+  const ms = meetingsOf(ymd), ses = sharedOf(ymd), pes = personalOf(ymd);
+  if (!ms.length && !ses.length && !pes.length) { box.innerHTML = '<div class="muted">등록된 회의·공동·개인 일정이 없어요.</div>'; return; }
   box.innerHTML = '';
   ms.forEach(m => box.appendChild(eventRow('meet', m)));
   ses.forEach(e => box.appendChild(eventRow('shared', e)));
+  pes.forEach(e => box.appendChild(eventRow('personal', e)));
 }
 function eventRow(kind, x) {
   const div = document.createElement('div');
-  div.className = 'ev-row ' + (kind === 'meet' ? 'ev-meet' : 'ev-shared');
-  const time = `<span class="ev-time">${x.time ? esc(x.time) : ''}</span>`;
-  const badge = kind === 'meet' ? '🎙️' : '👥';
+  div.className = 'ev-row ' + (kind === 'meet' ? 'ev-meet' : kind === 'personal' ? 'ev-personal' : 'ev-shared');
+  const shownTime = kind === 'personal' ? x.start_time : x.time;
+  const time = `<span class="ev-time">${shownTime ? esc(shownTime) : ''}</span>`;
+  const badge = kind === 'meet' ? '🎙️' : kind === 'personal' ? '🌷' : '👥';
   const sub = kind === 'meet'
     ? (x.audio_path ? ' 🔊' : '') + ((x.task_ids || []).length ? ` 🔗${x.task_ids.length}` : '')
-    : (x.note ? ' · ' + esc(x.note) : '') + (x.created_by ? ` · ${esc((x.created_by || '').split('@')[0])}` : '');
+    : kind === 'personal'
+      ? (x.end_time ? ` ~ ${esc(x.end_time)}` : '') + (x.location ? ` · ${esc(x.location)}` : '') + (x.note ? ` · ${esc(x.note)}` : '')
+      : (x.note ? ' · ' + esc(x.note) : '') + (x.created_by ? ` · ${esc((x.created_by || '').split('@')[0])}` : '');
   div.innerHTML = `${time}<span class="ev-title">${badge} ${esc(x.title)}<span class="ev-sub">${sub}</span></span>`;
-  div.onclick = () => kind === 'meet' ? openMeetingModal(x.id) : openSharedEventModal(x.id);
+  div.onclick = () => kind === 'meet' ? openMeetingModal(x.id) : kind === 'personal' ? openPersonalEventModal(x.id) : openSharedEventModal(x.id);
   return div;
 }
 
@@ -1331,6 +1366,7 @@ function renderWeek() {
       ${off ? `<span class="off-tag">🏖️</span>` : ''}</h4>`;
     meetingsOf(d).forEach(mm => { const w = document.createElement('div'); w.className = 'wev wev-meet'; w.innerHTML = `${mm.time ? esc(mm.time) + ' ' : ''}🎙️ ${esc(mm.title)}`; w.onclick = () => openMeetingModal(mm.id); col.appendChild(w); });
     sharedOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-shared'; w.innerHTML = `${ev.time ? esc(ev.time) + ' ' : ''}👥 ${esc(ev.title)}`; w.onclick = () => openSharedEventModal(ev.id); col.appendChild(w); });
+personalOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-personal'; w.innerHTML = `${ev.start_time ? esc(ev.start_time) + ' ' : ''}🌷 ${esc(ev.title)}`; w.onclick = () => openPersonalEventModal(ev.id); col.appendChild(w); });
     ts.forEach(t => {
       const w = document.createElement('div'); w.className = 'wtask';
       w.innerHTML = `<div class="task-check ${t.done ? 'done' : ''}" onclick="event.stopPropagation();toggleTask('${t.id}')">${t.done ? '✓' : ''}</div>
@@ -1357,12 +1393,12 @@ function goThisMonth() { curMonth = todayStr().slice(0, 7); renderMonth(); }
 function openMonthPicker() {
   const inp = document.getElementById('monthDatePicker');
   if (!inp) return;
-  inp.value = `${curMonth}-01`;
+  inp.value = curMonth;
   try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
 }
 function jumpToMonth(v) {
   if (!v) return;
-  curMonth = v.slice(0, 7);
+  curMonth = v;
   renderMonth();
 }
 function renderMonth() {
@@ -1387,6 +1423,7 @@ function renderMonth() {
     // 셀 상단: 회의(보라)·공동일정(초록) → 반복 → 실제 업무
     const mItems = meetingsOf(d).map(mm => `<div class="mt mt-meet">🎙️ ${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
       .concat(sharedOf(d).map(ev => `<div class="mt mt-shared">👥 ${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
+.concat(personalOf(d).map(ev => `<div class="mt mt-personal">🌷 ${ev.start_time ? esc(ev.start_time) + ' ' : ''}${esc(ev.title)}</div>`))
       .concat(rOcc.map(r => `<div class="mt routine-mark${routineOccurrenceDone(r, d) ? ' done' : ''}">🔁 ${esc(r.title)}</div>`))
       .concat(ts.map(t => `<div class="mt ${t.done ? 'done' : ''}">${esc(t.title)}</div>`));
     mItems.slice(0, 4).forEach(h => html += h);
@@ -1696,6 +1733,48 @@ async function saveMeeting(id) {
   else state.meetings.unshift(data);
   recBlob = null; closeModal(); renderAll(); toast('회의록이 저장됐어요.');
 }
+/* ===== 개인 일정 (본인 전용) ===== */
+function openPersonalEventModal(id, presetDate) {
+  const e = id ? state.personalEvents.find(x => x.id === id) : null;
+  openModal(`
+    <h3>${e ? '개인 일정 수정' : '새 개인 일정'} <span class="chip" style="background:#ffe9f2;color:#b13b6d">🌷 나만 보기</span></h3>
+    <label>제목</label><input id="peTitle" value="${e ? esc(e.title) : ''}" placeholder="예: 병원 예약, 가족 모임">
+    <label>날짜</label><input id="peDate" type="date" value="${e ? e.date : (presetDate || todayStr())}">
+    <div class="row">
+      <div style="flex:1;min-width:130px"><label>시작 시간 (선택)</label><input id="peStart" type="time" value="${e ? (e.start_time || '') : ''}"></div>
+      <div style="flex:1;min-width:130px"><label>종료 시간 (선택)</label><input id="peEnd" type="time" value="${e ? (e.end_time || '') : ''}"></div>
+    </div>
+    <label>장소 (선택)</label><input id="peLocation" value="${e ? esc(e.location || '') : ''}" placeholder="예: 부산진구 보건소">
+    <label>메모 (선택)</label><textarea id="peNote" rows="3" placeholder="준비물, 연락처 등">${e ? esc(e.note || '') : ''}</textarea>
+    <div class="foot">
+      ${e ? `<button class="btn danger left" onclick="delPersonalEvent('${e.id}')">삭제</button>` : ''}
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" onclick="savePersonalEvent(${e ? `'${e.id}'` : 'null'})">저장</button>
+    </div>`);
+}
+async function savePersonalEvent(id) {
+  const title = document.getElementById('peTitle').value.trim();
+  if (!title) return toast('제목을 입력하세요.');
+  const start_time = document.getElementById('peStart').value || null;
+  const end_time = document.getElementById('peEnd').value || null;
+  if (start_time && end_time && end_time < start_time) return toast('종료 시간은 시작 시간 이후로 설정하세요.');
+  const row = { user_id: user.id, title, date: document.getElementById('peDate').value || todayStr(), start_time, end_time,
+    location: document.getElementById('peLocation').value.trim() || null, note: document.getElementById('peNote').value.trim() || null,
+    updated_at: new Date().toISOString() };
+  let error, data;
+  if (id) ({ error } = await sb.from('personal_events').update(row).eq('id', id));
+  else ({ data, error } = await sb.from('personal_events').insert(row).select().single());
+  if (error) return toast(error.code === '42P01' ? 'Supabase에서 개인일정 추가 SQL을 먼저 실행하세요.' : '저장 실패: ' + error.message);
+  if (id) Object.assign(state.personalEvents.find(x => x.id === id), row); else state.personalEvents.push(data);
+  closeModal(); renderAll(); toast('개인 일정을 저장했어요.');
+}
+async function delPersonalEvent(id) {
+  if (!confirm('이 개인 일정을 삭제할까요?')) return;
+  const { error } = await sb.from('personal_events').delete().eq('id', id);
+  if (error) return toast('삭제 실패: ' + error.message);
+  state.personalEvents = state.personalEvents.filter(x => x.id !== id);
+  closeModal(); renderAll(); toast('삭제했어요.');
+}
 /* ===== 공동 일정 (팀 공유) ===== */
 function openSharedEventModal(id, presetDate) {
   if (!state.isTeamMember) return toast('팀원만 공동 일정을 등록할 수 있어요.');
@@ -1893,22 +1972,29 @@ function openOffModal() {
     `<button class="${state.weeklyOff.includes(i) ? 'on' : ''}" onclick="toggleWeeklyOff(${i})">${d}</button>`).join('');
   const items = state.daysOff.map(o => `
     <div class="off-item">
-      <span>🏖️ ${fmtKo(o.date)}</span><span class="lbl">${esc(o.label || '')}</span>
+      <span>${isPartialOffRecord(o) ? '🌓' : '🏖️'} ${fmtKo(o.date)}</span><span class="lbl">${esc(offLabelText(o))}</span>
       <button class="icon-btn" onclick="delOff('${o.id}')">✕</button>
-    </div>`).join('') || '<div class="muted">등록된 휴무·연차가 없어요.</div>';
+    </div>`).join('') || '<div class="muted">등록된 일회성 휴가가 없어요.</div>';
   openModal(`
     <h3>🏖️ 휴무 · 연차 관리</h3>
     <label>매주 고정 휴무 요일 (누르면 켜짐/꺼짐)</label>
     <div class="dow-picks">${dowBtns}</div>
-    <label>연차 · 특정일 휴무 추가</label>
+    <label>일회성 휴가 등록</label>
     <div class="row">
       <input type="date" id="offDate" style="flex:1;min-width:140px">
-      <input type="text" id="offLabel" placeholder="예: 연차, 여름휴가" style="flex:1;min-width:120px">
+      <select id="offType" style="width:auto;min-width:120px">
+        <option value="연차">🏖️ 연차</option>
+        <option value="휴가">🌴 휴가</option>
+        <option value="오전 반차">🌤️ 오전 반차</option>
+        <option value="오후 반차">🌙 오후 반차</option>
+        <option value="기타 휴무">📌 기타</option>
+      </select>
+      <input type="text" id="offLabel" placeholder="사유·메모 (선택)" style="flex:1;min-width:130px" onkeydown="if(event.key==='Enter')addOff()">
       <button class="btn sm" onclick="addOff()">추가</button>
     </div>
-    <label>등록된 휴무일</label>
+    <label>등록된 일회성 휴가</label>
     <div class="off-list">${items}</div>
-    <p class="muted" style="margin-bottom:0">휴무일에는 새 업무·고정 업무가 배정되지 않고, 이월도 다음 근무일로 건너뜁니다.</p>
+    <p class="muted" style="margin-bottom:0">연차·휴가는 하루 전체 휴무로 처리되어 업무가 다음 근무일로 이동합니다. 반차는 일정만 표시되고 업무는 정상 배정됩니다.</p>
     <div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>`);
 }
 async function toggleWeeklyOff(dow) {
@@ -1924,14 +2010,16 @@ async function toggleWeeklyOff(dow) {
 }
 async function addOff() {
   const date = document.getElementById('offDate').value;
-  const label = document.getElementById('offLabel').value.trim() || '휴무';
+  const type = document.getElementById('offType').value;
+  const note = document.getElementById('offLabel').value.trim();
+  const label = `[${type}]${note ? ' ' + note : ''}`;
   if (!date) return toast('날짜를 선택하세요.');
-  if (state.daysOff.some(o => o.date === date)) return toast('이미 등록된 날짜예요.');
+  if (state.daysOff.some(o => o.date === date)) return toast('이 날짜에는 이미 등록된 휴가가 있어요.');
   const { data, error } = await sb.from('days_off')
     .insert({ user_id: user.id, date, label }).select().single();
   if (error) return toast('추가 실패: ' + error.message);
   state.daysOff.push(data); state.daysOff.sort((a, b) => a.date < b.date ? -1 : 1);
-  openOffModal(); renderAll();
+  openOffModal(); renderAll(); toast(`${type}를 등록했어요.`);
 }
 async function delOff(id) {
   const { error } = await sb.from('days_off').delete().eq('id', id);
