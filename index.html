@@ -1639,6 +1639,7 @@ function openRoutineModal() {
       ${repBadge(r)}
       ${priChip(r.priority)}
       ${(r.repeat_every && r.repeat_every !== '매일') ? `<button class="icon-btn" onclick="toggleRoutineCal('${r.id}')" title="월간 캘린더 표시 켜기/끄기">${r.show_on_calendar !== false ? '📅' : '🚫'}</button>` : ''}
+      <button class="icon-btn" onclick="openRoutineEditModal('${r.id}')" title="고정 업무 수정">✏️</button>
       <button class="icon-btn" onclick="delRoutine('${r.id}')">✕</button>
     </div>`).join('') || '<div class="muted">고정 업무가 없어요.</div>';
   openModal(`
@@ -1683,6 +1684,57 @@ async function addRoutine() {
   state.routines.push(data);
   await ensureRoutineTasks();
   openRoutineModal(); renderAll();
+}
+function openRoutineEditModal(id) {
+  const r = state.routines.find(x => x.id === id); if (!r) return;
+  const rep = r.repeat_every || '매일';
+  const opt = (value, label) => `<option value="${value}" ${rep === value ? 'selected' : ''}>${label}</option>`;
+  openModal(`
+    <h3>✏️ 고정 업무 수정</h3>
+    <label>업무명</label>
+    <input type="text" id="ertTitle" value="${esc(r.title)}" onkeydown="if(event.key==='Enter')saveRoutineEdit('${r.id}')">
+    <label>중요도</label>
+    <select id="ertPri">
+      <option value="높음" ${r.priority === '높음' ? 'selected' : ''}>🔴 높음</option>
+      <option value="중간" ${r.priority === '중간' ? 'selected' : ''}>🟡 중간</option>
+      <option value="낮음" ${r.priority === '낮음' ? 'selected' : ''}>🟢 낮음</option>
+    </select>
+    <label>반복 주기</label>
+    <select id="ertRep" onchange="document.getElementById('ertAnchorWrap').style.display=this.value==='매일'?'none':'block'">
+      ${opt('매일', '매일 (근무일마다)')}${opt('매주', '매주')}${opt('2주마다', '2주마다')}${opt('매월', '매월')}${opt('분기별', '분기별 (3개월마다)')}${opt('매년', '매년')}
+    </select>
+    <div id="ertAnchorWrap" style="display:${rep === '매일' ? 'none' : 'block'}">
+      <label>시작일(기준)</label>
+      <input type="date" id="ertAnchor" value="${r.anchor_date || todayStr()}">
+    </div>
+    <label class="pick" style="margin-top:12px"><input type="checkbox" id="ertCal" ${r.show_on_calendar !== false ? 'checked' : ''}> 📅 월간 캘린더에 표시</label>
+    <p class="muted" style="margin:8px 0 0">수정 내용은 앞으로 생성될 고정 업무부터 적용됩니다.</p>
+    <div class="foot">
+      <button class="btn ghost" onclick="openRoutineModal()">취소</button>
+      <button class="btn" onclick="saveRoutineEdit('${r.id}')">저장</button>
+    </div>`);
+  setTimeout(() => document.getElementById('ertTitle')?.focus(), 0);
+}
+async function saveRoutineEdit(id) {
+  const r = state.routines.find(x => x.id === id); if (!r) return;
+  const title = document.getElementById('ertTitle').value.trim();
+  if (!title) return toast('업무명을 입력하세요.');
+  const repeat_every = document.getElementById('ertRep').value;
+  const anchor_date = repeat_every === '매일' ? null : (document.getElementById('ertAnchor').value || todayStr());
+  const scheduleChanged = repeat_every !== (r.repeat_every || '매일') || anchor_date !== (r.anchor_date || null);
+  const row = {
+    title,
+    priority: document.getElementById('ertPri').value,
+    repeat_every,
+    anchor_date,
+    show_on_calendar: document.getElementById('ertCal').checked,
+  };
+  if (scheduleChanged) row.last_generated = null;
+  const { error } = await sb.from('routines').update(row).eq('id', id);
+  if (error) return toast('수정 실패: ' + error.message);
+  Object.assign(r, row);
+  if (r.active && scheduleChanged) await ensureRoutineTasks();
+  openRoutineModal(); renderAll(); toast('고정 업무를 수정했어요.');
 }
 async function toggleRoutine(id) {
   const r = state.routines.find(x => x.id === id); if (!r) return;
