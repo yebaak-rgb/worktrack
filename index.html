@@ -613,6 +613,8 @@ function offTypeOf(o) {
   const m = (o && o.label || '').match(/^\[(연차|휴가|오전 반차|오후 반차|기타 휴무)\]/);
   return m ? m[1] : '휴무';
 }
+function offIcon(o) { return ({ '연차': '🏖️', '휴가': '🌴', '오전 반차': '🌤️', '오후 반차': '🌙', '기타 휴무': '📌' })[offTypeOf(o)] || '🏖️'; }
+function dayOffIcon(ymd) { const o = state.daysOff.find(x => x.date === ymd); return o ? offIcon(o) : (state.weeklyOff.includes(dowOf(ymd)) ? '🏖️' : ''); }
 function isPartialOffRecord(o) { return ['오전 반차', '오후 반차'].includes(offTypeOf(o)); }
 function partialOffOf(ymd) { return state.daysOff.find(o => o.date === ymd && isPartialOffRecord(o)) || null; }
 function offLabelText(o) {
@@ -1140,7 +1142,7 @@ function renderDashMonth() {
     const items = sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`)
       .concat(personalOf(d).map(ev => `<div class="dmt dmt-personal">🌷${ev.start_time ? esc(ev.start_time) + ' ' : ''}${esc(ev.title)}</div>`));
     const cls = 'dmcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
-    let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' 🏖️' : ''}</div>`;
+    let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' ' + dayOffIcon(d) : ''}</div>`;
     items.slice(0, 3).forEach(h => cellHtml += h);
     if (items.length > 3) cellHtml += `<div class="dmmore">+${items.length - 3}건</div>`;
     html += `<div class="${cls}" data-d="${d}">${cellHtml}</div>`;
@@ -1169,7 +1171,7 @@ function renderDash() {
   document.getElementById('dashProgTxt').textContent = list.length ? `${done}/${list.length} 완료` : '—';
   const offNote = document.getElementById('dashOffNote');
   if (isDayOff(today)) {
-    offNote.textContent = `🏖️ 오늘은 ${dayOffLabel(today)}! 푹 쉬세요.`;
+    offNote.textContent = `${dayOffIcon(today)} 오늘은 ${dayOffLabel(today)}! 푹 쉬세요.`;
     offNote.classList.remove('hidden');
   } else offNote.classList.add('hidden');
 
@@ -1198,7 +1200,7 @@ function renderDash() {
     const cell = document.createElement('div');
     cell.className = 'cellm' + (d === today ? ' today' : '') + (isDayOff(d) ? ' off' : '');
     let html = `<b>${DOW_KO[dowOf(d)]} ${Number(d.slice(8))}</b>`;
-    html += `<span class="cnt">${isDayOff(d) ? '🏖️ 휴무' : (ts.length ? `${dn}/${ts.length} 완료` : '·')}</span>`;
+    html += `<span class="cnt">${isDayOff(d) ? `${dayOffIcon(d)} 휴무` : (ts.length ? `${dn}/${ts.length} 완료` : '·')}</span>`;
     meetingsOf(d).forEach(mm => { html += `<div class="ti ti-meet">🎙️ ${esc(mm.title)}</div>`; });
     sharedOf(d).forEach(ev => { html += `<div class="ti ti-shared">👥 ${esc(ev.title)}</div>`; });
     ts.slice(0, 6).forEach(t => {
@@ -1281,7 +1283,7 @@ function renderDay() {
   document.getElementById('dayTitle').textContent = fmtKo(curDate) + (isToday ? ' · 오늘' : '');
   const banner = document.getElementById('dayOffBanner');
   if (isDayOff(curDate)) {
-    banner.textContent = `🏖️ ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 세미나 등 일정은 '📅 일정'을 체크하면 이 날짜에 그대로 등록돼요.`;
+    banner.textContent = `${dayOffIcon(curDate)} ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 이 날짜에 두려면 '📌 날짜 고정'을 선택하세요.`;
     banner.classList.remove('hidden');
   } else if (partialOffOf(curDate)) {
     banner.textContent = `🌓 ${dayOffLabel(curDate)} — 반차 일정입니다. 업무와 고정 업무는 이 날짜에 정상 배정됩니다.`;
@@ -1354,7 +1356,7 @@ function renderWeek() {
     col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
     const ts = tasksOf(d).sort(weekTaskSort);
     col.innerHTML = `<h4><span>${DOW_KO[dowOf(d)]} <span class="d">${Number(d.slice(8))}일</span></span>
-      ${off ? `<span class="off-tag">🏖️</span>` : ''}</h4>`;
+      ${off ? `<span class="off-tag">${dayOffIcon(d)}</span>` : ''}</h4>`;
     meetingsOf(d).forEach(mm => { const w = document.createElement('div'); w.className = 'wev wev-meet'; w.innerHTML = `${mm.time ? esc(mm.time) + ' ' : ''}🎙️ ${esc(mm.title)}`; w.onclick = () => openMeetingModal(mm.id); col.appendChild(w); });
     sharedOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-shared'; w.innerHTML = `${ev.time ? esc(ev.time) + ' ' : ''}👥 ${esc(ev.title)}`; w.onclick = () => openSharedEventModal(ev.id); col.appendChild(w); });
 personalOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-personal'; w.innerHTML = `${ev.start_time ? esc(ev.start_time) + ' ' : ''}🌷 ${esc(ev.title)}`; w.onclick = () => openPersonalEventModal(ev.id); col.appendChild(w); });
@@ -1410,7 +1412,7 @@ function renderMonth() {
     const ts = tasksOf(d);
     // 반복 고정업무(매주/2주/매월) 예정 표시 — 아직 생성 안 된 도래분만(중복 방지)
     const rOcc = state.routines.filter(r => r.active && r.show_on_calendar !== false && routineOccursOn(r, d) && !ts.some(t => t.routine_id === r.id));
-    let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? '<span>🏖️</span>' : ''}</div>`;
+    let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? `<span>${dayOffIcon(d)}</span>` : ''}</div>`;
     // 셀 상단: 회의(보라)·공동일정(초록) → 반복 → 실제 업무
     const mItems = meetingsOf(d).map(mm => `<div class="mt mt-meet">🎙️ ${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
       .concat(sharedOf(d).map(ev => `<div class="mt mt-shared">👥 ${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
@@ -1954,7 +1956,7 @@ function openOffModal() {
     `<button class="${state.weeklyOff.includes(i) ? 'on' : ''}" onclick="toggleWeeklyOff(${i})">${d}</button>`).join('');
   const items = state.daysOff.map(o => `
     <div class="off-item">
-      <span>${isPartialOffRecord(o) ? '🌓' : '🏖️'} ${fmtKo(o.date)}</span><span class="lbl">${esc(offLabelText(o))}</span>
+      <span>${offIcon(o)} ${fmtKo(o.date)}</span><span class="lbl">${esc(offLabelText(o))}</span>
       <button class="icon-btn" onclick="delOff('${o.id}')">✕</button>
     </div>`).join('') || '<div class="muted">등록된 일회성 휴가가 없어요.</div>';
   openModal(`
