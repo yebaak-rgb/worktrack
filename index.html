@@ -732,6 +732,7 @@ async function loadAll() {
 /* 날짜별 회의·공동일정 (시간순) */
 function meetingsOf(ymd) { return state.meetings.filter(m => m.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
 function sharedOf(ymd) { return state.sharedEvents.filter(e => e.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
+function personalOf(ymd) { return state.personalEvents.filter(e => e.date === ymd).sort((a, b) => (a.start_time || '99') < (b.start_time || '99') ? -1 : 1); }
 async function rolloverTasks() {
   const target = nextWorkday(todayStr());
   // 일정(is_event)은 특정 날짜에 고정되므로 자동이월에서 제외
