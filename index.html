@@ -1141,8 +1141,9 @@ function renderDashMonth() {
     if (d > last && dowOf(d) === 0) break;
     const inMonth = d.slice(0, 7) === ym;
     const off = isDayOff(d);
-    // 대시보드 월간 캘린더엔 공동일정·개인일정만 표시
-    const items = sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`)
+    // 대시보드 월간 캘린더엔 회의·공동일정·개인일정 표시
+    const items = meetingsOf(d).map(mm => `<div class="dmt dmt-meet">🎙️${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
+      .concat(sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
       .concat(personalOf(d).map(ev => `<div class="dmt dmt-personal">🌷${ev.start_time ? esc(ev.start_time) + ' ' : ''}${esc(ev.title)}</div>`));
     const cls = 'dmcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
     let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' ' + dayOffIcon(d) : ''}</div>`;
