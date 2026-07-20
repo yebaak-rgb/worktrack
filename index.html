@@ -179,6 +179,7 @@ ul.task-list li:last-child{border-bottom:none;}
 .task-title{flex:1;cursor:pointer;min-width:120px;}
 .task-title.done{text-decoration:line-through;color:var(--sub);}
 .task-title .note{display:block;font-size:12.5px;color:var(--sub);}
+.task-time{display:inline-block;background:#eef1f7;color:#3b63f3;font-size:12px;font-weight:600;border-radius:6px;padding:1px 6px;margin-right:6px;}
 .drag-handle{cursor:grab;color:#c2c7d6;font-size:17px;flex:none;padding:0 4px;touch-action:none;user-select:none;}
 .drag-handle:active{cursor:grabbing;}
 .dtask.sortable-chosen{background:var(--accent-soft);border-radius:8px;}
@@ -201,6 +202,7 @@ li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub)
 .due-inline{display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:10px;
   padding:0 8px;background:#fff;font-size:14px;cursor:pointer;}
 .due-inline input[type=date]{border:none;padding:8px 2px;width:130px;font-size:13px;}
+.due-inline input[type=time]{border:none;padding:8px 2px;width:96px;font-size:13px;background:transparent;}
 .day-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .day-nav h2{font-size:18px;margin:0;}
 .day-title-btn{cursor:pointer;border-radius:8px;padding:2px 8px;transition:background .12s;}
@@ -431,6 +433,7 @@ audio{width:100%;max-width:420px;height:38px;}
           <ul class="task-list" id="dashTasks"></ul>
           <div class="add-inline">
             <input type="text" id="dashNewTask" placeholder="오늘 할 일 추가 (Enter)" onkeydown="if(event.key==='Enter')addTaskQuick('dashNewTask')">
+            <label class="due-inline" title="시간 (선택)">🕒<input type="time" id="dashNewTime"></label>
             <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="dashNewDue"></label>
             <button class="btn sm" onclick="addTaskQuick('dashNewTask')">추가</button>
           </div>
@@ -481,6 +484,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <ul class="task-list" id="dayTasks"></ul>
         <div class="add-inline">
           <input type="text" id="newTaskTitle" placeholder="할 일 입력 후 Enter" onkeydown="if(event.key==='Enter')addTask()">
+          <label class="due-inline" title="시간 (선택)">🕒<input type="time" id="newTaskTime"></label>
           <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="newTaskDue"></label>
           <label class="event-inline" title="선택하면 이 날짜에 고정되며 휴무일 이동·자동이월에서 제외됩니다"><input type="checkbox" id="newTaskEvent">📌 날짜 고정</label>
           <button class="btn" onclick="addTask()">추가</button>
@@ -984,14 +988,19 @@ function ddayChip(due) {
   return `<span class="dday ${cls}" title="마감 ${fmtKo(due)}">⏰ ${label}</span>`;
 }
 // isEvent=true(일정): 휴무일에도 그 날짜에 그대로 등록, 자동이월 대상에서 제외
-async function createTask(title, ymd, priority, dueDate, isEvent = false) {
+async function createTask(title, ymd, priority, dueDate, isEvent = false, time = null) {
   let date = ymd, moved = false;
   // 일정은 날짜 이동 없음. 일반 업무만 휴무일이면 다음 근무일로 이동
   if (!isEvent && isDayOff(ymd)) { date = nextWorkday(ymd); moved = date !== ymd; }
   const maxSort = state.tasks.filter(x => x.date === date && !x.done).reduce((m, x) => Math.max(m, x.sort || 0), 0);
-  const { data, error } = await sb.from('tasks')
-    .insert({ user_id: user.id, title, date, priority, done: false, note: '', carried_over: 0, due_date: dueDate || null, is_event: isEvent, sort: maxSort + 1 })
-    .select().single();
+  const row = { user_id: user.id, title, date, priority, done: false, note: '', carried_over: 0, due_date: dueDate || null, is_event: isEvent, time: time || null, sort: maxSort + 1 };
+  let { data, error } = await sb.from('tasks').insert(row).select().single();
+  // DB에 time 컬럼이 아직 없으면 시간 없이 재시도 (마이그레이션 전 호환)
+  if (error && /time/i.test(error.message)) {
+    delete row.time;
+    ({ data, error } = await sb.from('tasks').insert(row).select().single());
+    if (!error) toast('추가됐어요. (시간은 DB 준비 후 저장됩니다)');
+  }
   if (error) return toast('추가 실패: ' + error.message);
   state.tasks.push(data);
   if (isEvent) toast(`📅 ${fmtKo(date)}에 일정을 등록했어요.`);
@@ -1002,16 +1011,18 @@ async function addTask() {
   const input = document.getElementById('newTaskTitle');
   const title = input.value.trim(); if (!title) return;
   const due = document.getElementById('newTaskDue');
+  const time = document.getElementById('newTaskTime');
   const isEvent = document.getElementById('newTaskEvent').checked;
-  await createTask(title, curDate, '중간', due.value || null, isEvent);
-  input.value = ''; due.value = ''; input.focus();
+  await createTask(title, curDate, '중간', due.value || null, isEvent, time ? (time.value || null) : null);
+  input.value = ''; due.value = ''; if (time) time.value = ''; input.focus();
 }
 async function addTaskQuick(inputId) {
   const input = document.getElementById(inputId);
   const title = input.value.trim(); if (!title) return;
   const due = document.getElementById('dashNewDue');
-  await createTask(title, todayStr(), '중간', due ? (due.value || null) : null);
-  input.value = ''; if (due) due.value = ''; input.focus();
+  const time = document.getElementById('dashNewTime');
+  await createTask(title, todayStr(), '중간', due ? (due.value || null) : null, false, time ? (time.value || null) : null);
+  input.value = ''; if (due) due.value = ''; if (time) time.value = ''; input.focus();
 }
 async function addTaskOn(ymd) {
   const title = (prompt(`${fmtKo(ymd)} 할 일 입력`) || '').trim();
@@ -1052,6 +1063,7 @@ function openTaskModal(id) {
     <h3>업무 수정 ${t.routine_id ? '<span class="chip routine">🔁 고정 업무</span>' : ''}</h3>
     <label>업무명</label><input id="tmTitle" value="${esc(t.title)}">
     <label>날짜</label><input id="tmDate" type="date" value="${t.date}">
+    <label>시간 (선택)</label><input id="tmTime" type="time" value="${t.time || ''}">
     <label>마감기한 (선택)</label><input id="tmDue" type="date" value="${t.due_date || ''}">
     <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}><span><b>📌 날짜 고정</b><small>휴무일 이동과 자동 이월에서 제외합니다.</small></span></label>
     <label>비고</label><textarea id="tmNote" rows="2">${esc(t.note || '')}</textarea>
@@ -1076,9 +1088,15 @@ async function saveTaskModal(id) {
     date,
     note: document.getElementById('tmNote').value.trim(),
     due_date: document.getElementById('tmDue').value || null,
+    time: document.getElementById('tmTime').value || null,
     is_event: isEvent,
   };
-  const { error } = await sb.from('tasks').update(upd).eq('id', id);
+  let { error } = await sb.from('tasks').update(upd).eq('id', id);
+  // DB에 time 컬럼이 아직 없으면 시간 없이 재시도 (마이그레이션 전 호환)
+  if (error && /time/i.test(error.message)) {
+    delete upd.time;
+    ({ error } = await sb.from('tasks').update(upd).eq('id', id));
+  }
   if (error) return toast('저장 실패: ' + error.message);
   Object.assign(t, upd); closeModal(); renderAll();
 }
@@ -1090,7 +1108,7 @@ function taskLi(t, withOrder) {
     ${drag ? '<span class="drag-handle" title="드래그해서 순서 변경">≡</span>' : ''}
     <div class="task-check ${t.done ? 'done' : ''}" onclick="toggleTask('${t.id}')">${t.done ? '✓' : ''}</div>
     <div class="task-title ${t.done ? 'done' : ''}" onclick="openTaskModal('${t.id}')">
-      ${esc(t.title)}${t.note ? `<span class="note">${esc(t.note)}</span>` : ''}
+      ${t.time ? `<span class="task-time">${esc(t.time)}</span>` : ''}${esc(t.title)}${t.note ? `<span class="note">${esc(t.note)}</span>` : ''}
     </div>
     ${t.is_event ? '<span class="chip event">📌 날짜 고정</span>' : ''}
     ${t.routine_id ? '<span class="chip routine">🔁</span>' : ''}
@@ -1367,7 +1385,7 @@ personalOf(d).forEach(ev => { const w = document.createElement('div'); w.classNa
     ts.forEach(t => {
       const w = document.createElement('div'); w.className = 'wtask';
       w.innerHTML = `<div class="task-check ${t.done ? 'done' : ''}" onclick="event.stopPropagation();toggleTask('${t.id}')">${t.done ? '✓' : ''}</div>
-        <span class="t ${t.done ? 'done' : ''}">${t.routine_id ? '🔁 ' : ''}${esc(t.title)}</span>${ddayChip(t.due_date)}`;
+        <span class="t ${t.done ? 'done' : ''}">${t.time ? esc(t.time) + ' ' : ''}${t.routine_id ? '🔁 ' : ''}${esc(t.title)}</span>${ddayChip(t.due_date)}`;
       w.onclick = () => openTaskModal(t.id);
       col.appendChild(w);
     });
