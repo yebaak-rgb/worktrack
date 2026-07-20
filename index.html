@@ -304,6 +304,13 @@ audio{width:100%;max-width:420px;height:38px;}
 .contact-card .person{font-size:13.5px;color:var(--text);margin-bottom:6px;}
 .contact-card .line{font-size:12.5px;color:var(--sub);display:flex;gap:6px;align-items:center;word-break:break-all;}
 .contact-card .line a{color:var(--accent);text-decoration:none;}
+/* ===== 사이트 공유 ===== */
+.site-field{display:flex;align-items:center;gap:6px;font-size:13px;margin-top:6px;flex-wrap:wrap;}
+.site-field .lbl{color:var(--sub);min-width:44px;}
+.site-field .val{font-family:ui-monospace,Menlo,Consolas,monospace;background:#f4f6fb;border-radius:6px;padding:2px 8px;word-break:break-all;flex:1;min-width:80px;}
+.site-field .val.pw{letter-spacing:1px;}
+.mini-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--sub);}
+.mini-btn:hover{border-color:var(--accent);color:var(--accent);}
 /* ===== 검색 결과 ===== */
 .sr-group{margin-bottom:14px;}
 .sr-group h4{margin:0 0 6px;font-size:13px;color:var(--sub);}
@@ -388,6 +395,7 @@ audio{width:100%;max-width:420px;height:38px;}
     <button class="snav" data-view="month" onclick="switchView('month')"><span class="ico">📅</span>월간 캘린더</button>
     <button class="snav" data-view="meeting" onclick="switchView('meeting')"><span class="ico">🎙️</span>회의록</button>
     <button class="snav" data-view="contact" onclick="switchView('contact')"><span class="ico">📇</span>거래처</button>
+    <button class="snav" data-view="sites" onclick="openSiteShareTab()"><span class="ico">🔐</span>사이트 공유</button>
     <div class="sep"></div>
     <button class="snav" onclick="openRoutineModal()"><span class="ico">🔁</span>고정 업무</button>
     <button class="snav" onclick="openOffModal()"><span class="ico">🏖️</span>휴무 관리</button>
@@ -533,6 +541,17 @@ audio{width:100%;max-width:420px;height:38px;}
       <div class="cat-tabs" id="contactCatTabs" style="margin-bottom:12px"></div>
       <div class="contact-grid" id="contactGrid"></div>
     </section>
+
+    <!-- 사이트 공유 (비밀번호 잠금) -->
+    <section id="view-sites" class="hidden">
+      <div class="row" style="margin-bottom:6px">
+        <button class="btn" onclick="openSiteModal()">＋ 사이트 추가</button>
+        <input type="search" id="siteSearch" placeholder="사이트·아이디 검색" style="max-width:240px" oninput="renderSites()">
+        <button class="btn ghost sm" onclick="lockSites()" title="잠그고 목록 숨기기">🔒 잠그기</button>
+      </div>
+      <p class="muted" style="margin:0 0 12px">🔐 팀원과 공유하는 사이트 로그인 정보예요. 화면을 벗어나면 자동으로 잠깁니다.</p>
+      <div class="contact-grid" id="sitesGrid"></div>
+    </section>
   </main>
 
   <!-- 우측 메모 패널 -->
@@ -568,7 +587,7 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], isTeamMember: false };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], sharedSites: [], isTeamMember: false };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
@@ -733,6 +752,12 @@ async function loadAll() {
     if (pe.error) console.warn('개인 일정 불러오기:', pe.error.message);
     else state.personalEvents = pe.data || [];
   } catch (e) { console.warn('개인 일정 불러오기 실패:', e); }
+  state.sharedSites = [];
+  try {
+    const ss = await sb.from('shared_sites').select('*').order('name');
+    if (ss.error) console.warn('사이트 공유 불러오기:', ss.error.message);
+    else state.sharedSites = ss.data || [];
+  } catch (e) { console.warn('사이트 공유 불러오기 실패:', e); }
   state.isTeamMember = !!(user && user.email && state.teamMembers.some(x => x.email === user.email));
 }
 /* 날짜별 회의·공동일정 (시간순) */
@@ -897,8 +922,10 @@ async function ensureRoutineTasks() {
 /* ================= 뷰 전환 ================= */
 function switchView(v) {
   document.querySelectorAll('.snav[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  ['dash', 'day', 'week', 'month', 'meeting', 'contact'].forEach(x =>
+  ['dash', 'day', 'week', 'month', 'meeting', 'contact', 'sites'].forEach(x =>
     document.getElementById('view-' + x).classList.toggle('hidden', x !== v));
+  // 사이트 공유 화면을 벗어나면 비밀번호 내용을 DOM에서 비워 잠금 유지
+  if (v !== 'sites') { const sg = document.getElementById('sitesGrid'); if (sg) sg.innerHTML = ''; }
   renderAll();
 }
 function renderAll() { renderDash(); renderDay(); renderWeek(); renderMonth(); renderMemos(); renderMeetings(); renderContacts(); }
@@ -2124,6 +2151,99 @@ async function delContact(id) {
   if (error) return toast('삭제 실패: ' + error.message);
   state.contacts = state.contacts.filter(x => x.id !== id);
   closeModal(); renderContacts();
+}
+
+/* ================= 사이트 공유 (팀 공유, 비밀번호 잠금) ================= */
+const SITE_TAB_PW = '286128';
+function openSiteShareTab() {
+  const pw = prompt('🔐 사이트 공유 비밀번호를 입력하세요.');
+  if (pw === null) return;                              // 취소
+  if (pw !== SITE_TAB_PW) { toast('비밀번호가 틀렸어요.'); return; }
+  switchView('sites');
+  renderSites();
+}
+function lockSites() { switchView('dash'); }             // 화면을 벗어나며 잠금(그리드 비워짐)
+function copyText(text, label) {
+  if (!navigator.clipboard) { toast('이 브라우저에서는 복사가 지원되지 않아요.'); return; }
+  navigator.clipboard.writeText(text || '').then(() => toast((label || '') + ' 복사됐어요.')).catch(() => toast('복사 실패'));
+}
+function copySite(id, field, label) {
+  const s = state.sharedSites.find(x => x.id === id); if (!s) return;
+  copyText(s[field] || '', label);
+}
+function toggleSitePw(id, btn) {
+  const el = document.getElementById('pw-' + id); if (!el) return;
+  const s = state.sharedSites.find(x => x.id === id); if (!s) return;
+  const showing = el.dataset.show === '1';
+  el.dataset.show = showing ? '0' : '1';
+  el.textContent = showing ? '••••••••' : (s.password || '');
+  if (btn) btn.textContent = showing ? '👁 보기' : '🙈 숨기기';
+}
+function renderSites() {
+  const grid = document.getElementById('sitesGrid');
+  if (!grid) return;
+  const q = (document.getElementById('siteSearch')?.value || '').trim().toLowerCase();
+  const list = state.sharedSites.filter(s =>
+    !q || [s.name, s.url, s.login_id, s.note].some(v => (v || '').toLowerCase().includes(q)));
+  grid.innerHTML = list.length ? '' : '<div class="muted">등록된 사이트가 없어요. "사이트 추가"로 시작하세요.</div>';
+  for (const s of list) {
+    const card = document.createElement('div');
+    card.className = 'contact-card';
+    card.style.cursor = 'default';
+    const href = /^https?:\/\//.test(s.url || '') ? s.url : 'https://' + (s.url || '');
+    const host = (s.url || '').replace(/^https?:\/\//, '');
+    card.innerHTML = `
+      <h4>🔐 ${esc(s.name)}</h4>
+      ${s.url ? `<div class="line">🌐 <a href="${esc(href)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(host)}</a></div>` : ''}
+      ${s.login_id ? `<div class="site-field"><span class="lbl">아이디</span><span class="val">${esc(s.login_id)}</span><button class="mini-btn" onclick="copySite('${s.id}','login_id','아이디')">복사</button></div>` : ''}
+      ${s.password ? `<div class="site-field"><span class="lbl">비번</span><span class="val pw" id="pw-${s.id}" data-show="0">••••••••</span><button class="mini-btn" onclick="toggleSitePw('${s.id}', this)">👁 보기</button><button class="mini-btn" onclick="copySite('${s.id}','password','비밀번호')">복사</button></div>` : ''}
+      ${s.note ? `<div class="line" style="margin-top:6px">📝 ${esc(s.note)}</div>` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:10px">
+        <button class="btn ghost sm" onclick="openSiteModal('${s.id}')">✏️ 수정</button>
+      </div>`;
+    grid.appendChild(card);
+  }
+}
+function openSiteModal(id) {
+  const s = id ? state.sharedSites.find(x => x.id === id) : null;
+  openModal(`
+    <h3>${s ? '사이트 수정' : '사이트 추가'}</h3>
+    <label>사이트명 *</label><input id="stName" value="${s ? esc(s.name) : ''}" placeholder="예: 네이버 스마트스토어">
+    <label>URL</label><input id="stUrl" value="${s ? esc(s.url || '') : ''}" placeholder="예: smartstore.naver.com">
+    <label>아이디</label><input id="stLogin" value="${s ? esc(s.login_id || '') : ''}" placeholder="로그인 아이디">
+    <label>비밀번호</label><input id="stPw" value="${s ? esc(s.password || '') : ''}" placeholder="로그인 비밀번호">
+    <label>메모</label><textarea id="stNote" rows="2" placeholder="특이사항, OTP 안내 등">${s ? esc(s.note || '') : ''}</textarea>
+    <div class="foot">
+      ${s ? `<button class="btn danger left" onclick="delSite('${s.id}')">삭제</button>` : ''}
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" onclick="saveSite(${s ? `'${s.id}'` : 'null'})">저장</button>
+    </div>`);
+}
+async function saveSite(id) {
+  const name = document.getElementById('stName').value.trim();
+  if (!name) return toast('사이트명을 입력하세요.');
+  const row = {
+    user_id: user.id, name,
+    url: document.getElementById('stUrl').value.trim(),
+    login_id: document.getElementById('stLogin').value.trim(),
+    password: document.getElementById('stPw').value,
+    note: document.getElementById('stNote').value.trim(),
+  };
+  let error, data;
+  if (id) ({ error } = await sb.from('shared_sites').update(row).eq('id', id));
+  else ({ data, error } = await sb.from('shared_sites').insert(row).select().single());
+  if (error) return toast('저장 실패: ' + error.message);
+  if (id) Object.assign(state.sharedSites.find(x => x.id === id), row);
+  else state.sharedSites.push(data);
+  state.sharedSites.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
+  closeModal(); renderSites(); toast('사이트가 저장됐어요.');
+}
+async function delSite(id) {
+  if (!confirm('이 사이트 정보를 삭제할까요?')) return;
+  const { error } = await sb.from('shared_sites').delete().eq('id', id);
+  if (error) return toast('삭제 실패: ' + error.message);
+  state.sharedSites = state.sharedSites.filter(x => x.id !== id);
+  closeModal(); renderSites();
 }
 
 /* ================= 통합 검색 ================= */
