@@ -929,7 +929,15 @@ function switchView(v) {
   renderAll();
 }
 function renderAll() { renderDash(); renderDay(); renderWeek(); renderMonth(); renderMemos(); renderMeetings(); renderContacts(); }
-function toggleMemoPanel() { document.getElementById('memoPanel').classList.toggle('open'); }
+function toggleMemoPanel() {
+  const panel = document.getElementById('memoPanel');
+  panel.classList.toggle('open');
+  // 메모 패널을 닫으면 열어둔 잠긴 메모를 모두 다시 잠근다
+  if (!panel.classList.contains('open') && unlockedMemoContent.size) {
+    unlockedMemoContent.clear();
+    renderMemos();
+  }
+}
 
 /* ===== 사용자별 표시 이름 (사이드바 로고) ===== */
 function updateLogo() {
@@ -1572,7 +1580,16 @@ async function addMemo() {
 function toggleMemoExpand(el) {
   const selected = window.getSelection && window.getSelection().toString().trim();
   if (selected) return;
-  el.closest('.memo-card').classList.toggle('expanded');
+  const card = el.closest('.memo-card');
+  if (!card) return;
+  const id = card.dataset.id;
+  // 잠긴 메모를 접으면(닫으면) 다시 잠금 상태로 되돌린다
+  if (card.classList.contains('expanded') && id && unlockedMemoContent.has(id)) {
+    unlockedMemoContent.delete(id);
+    renderMemos();
+    return;
+  }
+  card.classList.toggle('expanded');
 }
 async function unlockMemo(id) {
   const m = state.memos.find(x => x.id === id); if (!m) return;
