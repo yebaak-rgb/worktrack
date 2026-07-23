@@ -380,8 +380,24 @@ audio{width:100%;max-width:420px;height:38px;}
       <button class="btn ghost" style="flex:1" onclick="doSignup()">회원가입</button>
     </div>
     <div id="loginMsg" class="auth-msg err"></div>
+    <button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="doForgotPassword()">🔑 비밀번호를 잊으셨나요? (재설정 메일 받기)</button>
     <p class="muted" style="margin-top:14px">최초 1회만 회원가입하세요. 같은 계정으로 아이패드·PC 어디서든 로그인하면 됩니다.</p>
     <button class="btn ghost sm" style="margin-top:8px" onclick="resetConfig()">Supabase 연결 다시 설정</button>
+  </div>
+</div>
+
+<div id="resetScreen" class="auth-wrap hidden">
+  <div class="auth-card">
+    <h1>🔑 새 비밀번호 설정</h1>
+    <p class="sub">사용할 새 비밀번호를 입력하세요. (6자 이상)</p>
+    <label>새 비밀번호</label>
+    <input id="resetPw" type="password" placeholder="6자 이상" autocomplete="new-password">
+    <label>새 비밀번호 확인</label>
+    <input id="resetPw2" type="password" placeholder="다시 입력" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()">
+    <div class="row" style="margin-top:20px">
+      <button class="btn" style="flex:1" onclick="doResetPassword()">비밀번호 변경</button>
+    </div>
+    <div id="resetMsg" class="auth-msg err"></div>
   </div>
 </div>
 
@@ -670,13 +686,17 @@ async function init() {
   if (!cfg) { show('setupScreen'); return; }
   try { sb = window.supabase.createClient(cfg.url, cfg.key); }
   catch (e) { localStorage.removeItem(CFG_KEY); show('setupScreen'); return; }
+  // 비밀번호 재설정(복구) 링크로 들어온 경우 → 새 비밀번호 설정 화면
+  const isRecovery = /type=recovery/.test(location.hash);
+  sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') show('resetScreen'); });
+  if (isRecovery) { show('resetScreen'); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { show('loginScreen'); return; }
   user = session.user;
   await startApp();
 }
 function show(id) {
-  ['setupScreen', 'loginScreen', 'app'].forEach(x => document.getElementById(x).classList.add('hidden'));
+  ['setupScreen', 'loginScreen', 'resetScreen', 'app'].forEach(x => document.getElementById(x).classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
 }
 async function doLogin() {
@@ -697,6 +717,29 @@ async function doSignup() {
   else loginMsg('가입 완료! 이메일 인증 메일을 확인한 뒤 로그인하세요.', false);
 }
 async function doLogout() { await sb.auth.signOut(); location.reload(); }
+async function doForgotPassword() {
+  const email = document.getElementById('loginEmail').value.trim();
+  if (!email) return loginMsg('먼저 이메일 칸에 본인 이메일을 입력한 뒤 눌러 주세요.', true);
+  const redirectTo = location.origin + location.pathname;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) return loginMsg('메일 전송 실패: ' + koAuthErr(error.message), true);
+  loginMsg(`📧 ${email} 로 재설정 링크를 보냈어요. 메일함(스팸함 포함)을 확인하고 링크를 열면 새 비밀번호를 정할 수 있어요.`, false);
+}
+async function doResetPassword() {
+  const pw = document.getElementById('resetPw').value;
+  const pw2 = document.getElementById('resetPw2').value;
+  if (pw.length < 6) return resetMsg('6자 이상 비밀번호를 입력하세요.', true);
+  if (pw !== pw2) return resetMsg('두 비밀번호가 일치하지 않습니다.', true);
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) return resetMsg('변경 실패: ' + koAuthErr(error.message), true);
+  resetMsg('✅ 비밀번호가 변경됐어요! 잠시 후 로그인 화면으로 이동합니다.', false);
+  await sb.auth.signOut();
+  setTimeout(() => { location.hash = ''; location.reload(); }, 1800);
+}
+function resetMsg(m, isErr) {
+  const el = document.getElementById('resetMsg');
+  el.textContent = m; el.className = 'auth-msg ' + (isErr ? 'err' : 'ok');
+}
 function loginMsg(m, isErr) {
   const el = document.getElementById('loginMsg');
   el.textContent = m; el.className = 'auth-msg ' + (isErr ? 'err' : 'ok');
