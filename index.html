@@ -88,10 +88,14 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .memo-card.pinned{background:#fff3f0;border-color:#f3cfc4;}
 /* 메모 아코디언: 접힘=첫 줄만, 펼침=전체 */
 .memo-card .m-row{display:flex;align-items:flex-start;gap:6px;cursor:pointer;}
-.memo-card .m-caret{color:var(--sub);font-size:10px;margin-top:4px;flex:none;transition:transform .15s;}
+.memo-card .m-caret{color:var(--sub);font-size:10px;margin-top:4px;flex:none;transition:transform .15s;cursor:pointer;}
 .memo-card.expanded .m-caret{transform:rotate(90deg);}
-.memo-card .content{flex:1;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.memo-card.expanded .content{white-space:pre-wrap;word-break:break-word;}
+.memo-card .content{flex:1;font-size:13.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;user-select:text;cursor:text;}
+.memo-card.expanded .content{white-space:pre-wrap;word-break:break-word;overflow:visible;}
+.memo-card.locked{background:#f4f1ff;border-color:#dcd4f7;}
+.memo-card.locked .content{color:#65558f;font-weight:600;cursor:pointer;}
+.memo-lock-toggle{flex:none;width:38px;border:1px solid var(--line);border-radius:9px;background:#fff;}
+.memo-lock-toggle.on{background:#f1e9ff;color:#5b3aa8;border-color:#cfc0f1;}
 .memo-card .meta{font-size:11px;color:var(--sub);margin-top:7px;display:none;justify-content:space-between;align-items:center;}
 .memo-card.expanded .meta{display:flex;}
 .icon-btn{border:none;background:transparent;color:var(--sub);cursor:pointer;font-size:15px;padding:3px;}
@@ -113,9 +117,19 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 .dash-today .task-list{flex:1 1 auto;min-height:0;}
 .dash-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;}
 /* 대시보드 월간(제목 표시) */
-.dash-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+.dash-month-head{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+.dash-month-head h3{margin:0;}
+.dash-month-nav{display:flex;align-items:center;gap:4px;margin-left:4px;}
+.dash-month-nav button{height:28px;border:1px solid var(--line);background:var(--card);border-radius:7px;padding:0 9px;color:var(--text);font-size:12px;font-weight:700;cursor:pointer;}
+.dash-month-nav button:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft);}
+.dash-month-nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.dash-month-title{min-width:72px;text-align:center;font-size:13px;font-weight:800;cursor:pointer;border-radius:6px;padding:3px 5px;}
+.dash-month-title:hover{background:var(--accent-soft);color:var(--accent);}
+.dash-month-title::after{content:' ▾';font-size:10px;color:var(--sub);}
+.dash-month-head .mini{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer;}
+.dash-month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px;width:100%;}
 .dash-month .dmdow{text-align:center;font-size:11.5px;color:var(--sub);font-weight:700;padding:2px 0;}
-.dash-month .dmcell{min-height:74px;border:1px solid var(--line);border-radius:8px;padding:4px 5px;cursor:pointer;font-size:11px;overflow:hidden;}
+.dash-month .dmcell{min-width:0;min-height:74px;border:1px solid var(--line);border-radius:8px;padding:4px 5px;cursor:pointer;font-size:11px;overflow:hidden;}
 .dash-month .dmcell:hover{border-color:var(--accent);}
 .dash-month .dmcell.dim{opacity:.4;}
 .dash-month .dmcell.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
@@ -165,6 +179,7 @@ ul.task-list li:last-child{border-bottom:none;}
 .task-title{flex:1;cursor:pointer;min-width:120px;}
 .task-title.done{text-decoration:line-through;color:var(--sub);}
 .task-title .note{display:block;font-size:12.5px;color:var(--sub);}
+.task-time{display:inline-block;background:#eef1f7;color:#3b63f3;font-size:12px;font-weight:600;border-radius:6px;padding:1px 6px;margin-right:6px;}
 .drag-handle{cursor:grab;color:#c2c7d6;font-size:17px;flex:none;padding:0 4px;touch-action:none;user-select:none;}
 .drag-handle:active{cursor:grabbing;}
 .dtask.sortable-chosen{background:var(--accent-soft);border-radius:8px;}
@@ -173,22 +188,10 @@ li.routine-fixed .task-check.rf{width:21px;height:21px;min-width:21px;background
 li.routine-fixed.rdone .task-check.rf{background:var(--ok);border-color:var(--ok);color:#fff;}
 li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub);}
 .chip{font-size:11.5px;font-weight:700;border-radius:20px;padding:2px 9px;white-space:nowrap;}
-.chip.p-high{background:#fdecec;color:var(--danger);}
-.chip.p-mid{background:#fff4e0;color:#b97d0e;}
-.chip.p-low{background:#e8f6ef;color:var(--ok);}
+
 .chip.carry{background:var(--accent-soft);color:var(--accent);}
 .chip.routine{background:#eefafd;color:#0e7f9c;}
 .chip.meet{background:#f1e9ff;color:#7c4dcc;cursor:pointer;}
-.chip.ev-회의{background:#f1e9ff;color:#7c4dcc;}
-.chip.ev-미팅{background:var(--accent-soft);color:var(--accent);}
-.chip.ev-공동일정{background:#e8f6ef;color:var(--ok);}
-.chip.ev-개인일정{background:#fff4e0;color:#b97d0e;}
-.event-item{display:flex;align-items:center;gap:9px;padding:9px 4px;border-bottom:1px solid var(--line);cursor:pointer;font-size:14px;}
-.event-item:last-child{border-bottom:none;}
-.event-item:hover{background:var(--accent-soft);border-radius:8px;}
-.event-item .tm{font-weight:700;color:var(--accent);min-width:48px;font-size:13px;}
-.event-item .t{flex:1;}
-.event-item .nt{color:var(--sub);font-size:12.5px;}
 .chip.event{background:#e7f0ff;color:#2f6fdb;}
 .event-inline{display:flex;align-items:center;gap:5px;border:1px solid var(--line);border-radius:10px;
   padding:0 10px;background:#fff;font-size:13.5px;font-weight:600;color:var(--sub);cursor:pointer;white-space:nowrap;}
@@ -199,6 +202,7 @@ li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub)
 .due-inline{display:flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:10px;
   padding:0 8px;background:#fff;font-size:14px;cursor:pointer;}
 .due-inline input[type=date]{border:none;padding:8px 2px;width:130px;font-size:13px;}
+.due-inline input[type=time]{border:none;padding:8px 2px;width:96px;font-size:13px;background:transparent;}
 .day-nav{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
 .day-nav h2{font-size:18px;margin:0;}
 .day-title-btn{cursor:pointer;border-radius:8px;padding:2px 8px;transition:background .12s;}
@@ -225,16 +229,16 @@ li.routine-fixed.rdone .task-title{text-decoration:line-through;color:var(--sub)
 .off-tag{font-size:11px;color:#b08a2e;font-weight:700;}
 
 /* ===== 월간 ===== */
-.month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
-.month-grid .dow{text-align:center;font-size:12.5px;font-weight:700;color:var(--sub);padding:4px 0;}
-.mcell{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:92px;padding:6px;cursor:pointer;font-size:12px;}
+.month-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;width:100%;}
+.month-grid .dow{min-width:0;text-align:center;font-size:12.5px;font-weight:700;color:var(--sub);padding:4px 0;}
+.mcell{min-width:0;background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:92px;padding:6px;cursor:pointer;font-size:12px;overflow:hidden;}
 .mcell:hover{border-color:var(--accent);}
 .mcell.dim{opacity:.4;}
 .mcell.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft);}
 .mcell.off{background:#fbf6ec;}
 .mcell .dnum{font-weight:700;font-size:12.5px;margin-bottom:3px;display:flex;justify-content:space-between;}
 .mcell .mt{background:var(--accent-soft);color:var(--accent);border-radius:5px;padding:1px 5px;margin-bottom:2px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  display:block;width:100%;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .mcell .mt.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
 .mcell .mt.routine-mark{background:#eefafd;color:#0e7f9c;}
 .mcell .mt.routine-mark.done{background:#eef3ef;color:var(--sub);text-decoration:line-through;}
@@ -273,8 +277,11 @@ audio{width:100%;max-width:420px;height:38px;}
 .modal{background:#fff;border-radius:18px;width:100%;max-width:560px;padding:24px;box-shadow:0 10px 40px rgba(0,0,0,.2);}
 .modal h3{margin:0 0 16px;font-size:17px;}
 .modal label{font-size:13px;font-weight:600;color:var(--sub);display:block;margin:12px 0 5px;}
-.modal label.event-check{display:flex;align-items:center;gap:7px;cursor:pointer;color:var(--text);}
-.modal label.event-check input{margin:0;}
+.modal label.event-check{display:flex;align-items:flex-start;gap:10px;cursor:pointer;color:var(--text);padding:11px 12px;margin:12px 0 5px;border:1px solid var(--line);border-radius:10px;background:var(--bg);}
+.modal label.event-check input{width:18px;height:18px;min-width:18px;flex:none;margin:1px 0 0;cursor:pointer;}
+.modal label.event-check span{display:block;line-height:1.35;}
+.modal label.event-check b{display:block;font-size:13.5px;color:var(--text);}
+.modal label.event-check small{display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--sub);}
 .modal .foot{display:flex;justify-content:flex-end;gap:8px;margin-top:20px;flex-wrap:wrap;}
 .modal .foot .left{margin-right:auto;}
 .task-pick{max-height:200px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:6px;}
@@ -297,6 +304,13 @@ audio{width:100%;max-width:420px;height:38px;}
 .contact-card .person{font-size:13.5px;color:var(--text);margin-bottom:6px;}
 .contact-card .line{font-size:12.5px;color:var(--sub);display:flex;gap:6px;align-items:center;word-break:break-all;}
 .contact-card .line a{color:var(--accent);text-decoration:none;}
+/* ===== 사이트 공유 ===== */
+.site-field{display:flex;align-items:center;gap:6px;font-size:13px;margin-top:6px;flex-wrap:wrap;}
+.site-field .lbl{color:var(--sub);min-width:44px;}
+.site-field .val{font-family:ui-monospace,Menlo,Consolas,monospace;background:#f4f6fb;border-radius:6px;padding:2px 8px;word-break:break-all;flex:1;min-width:80px;}
+.site-field .val.pw{letter-spacing:1px;}
+.mini-btn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--sub);}
+.mini-btn:hover{border-color:var(--accent);color:var(--accent);}
 /* ===== 검색 결과 ===== */
 .sr-group{margin-bottom:14px;}
 .sr-group h4{margin:0 0 6px;font-size:13px;color:var(--sub);}
@@ -366,8 +380,24 @@ audio{width:100%;max-width:420px;height:38px;}
       <button class="btn ghost" style="flex:1" onclick="doSignup()">회원가입</button>
     </div>
     <div id="loginMsg" class="auth-msg err"></div>
+    <button class="btn ghost sm" style="margin-top:10px;width:100%" onclick="doForgotPassword()">🔑 비밀번호를 잊으셨나요? (재설정 메일 받기)</button>
     <p class="muted" style="margin-top:14px">최초 1회만 회원가입하세요. 같은 계정으로 아이패드·PC 어디서든 로그인하면 됩니다.</p>
     <button class="btn ghost sm" style="margin-top:8px" onclick="resetConfig()">Supabase 연결 다시 설정</button>
+  </div>
+</div>
+
+<div id="resetScreen" class="auth-wrap hidden">
+  <div class="auth-card">
+    <h1>🔑 새 비밀번호 설정</h1>
+    <p class="sub">사용할 새 비밀번호를 입력하세요. (6자 이상)</p>
+    <label>새 비밀번호</label>
+    <input id="resetPw" type="password" placeholder="6자 이상" autocomplete="new-password">
+    <label>새 비밀번호 확인</label>
+    <input id="resetPw2" type="password" placeholder="다시 입력" autocomplete="new-password" onkeydown="if(event.key==='Enter')doResetPassword()">
+    <div class="row" style="margin-top:20px">
+      <button class="btn" style="flex:1" onclick="doResetPassword()">비밀번호 변경</button>
+    </div>
+    <div id="resetMsg" class="auth-msg err"></div>
   </div>
 </div>
 
@@ -381,6 +411,7 @@ audio{width:100%;max-width:420px;height:38px;}
     <button class="snav" data-view="month" onclick="switchView('month')"><span class="ico">📅</span>월간 캘린더</button>
     <button class="snav" data-view="meeting" onclick="switchView('meeting')"><span class="ico">🎙️</span>회의록</button>
     <button class="snav" data-view="contact" onclick="switchView('contact')"><span class="ico">📇</span>거래처</button>
+    <button class="snav" data-view="sites" onclick="openSiteShareTab()"><span class="ico">🔐</span>사이트 공유</button>
     <div class="sep"></div>
     <button class="snav" onclick="openRoutineModal()"><span class="ico">🔁</span>고정 업무</button>
     <button class="snav" onclick="openOffModal()"><span class="ico">🏖️</span>휴무 관리</button>
@@ -403,7 +434,17 @@ audio{width:100%;max-width:420px;height:38px;}
     <section id="view-dash">
       <div class="dash-top">
         <div class="card">
-          <h3>📅 월간 캘린더 <span class="mini" onclick="switchView('month')">전체 ›</span></h3>
+          <div class="dash-month-head">
+            <h3>📅 월간 캘린더</h3>
+            <div class="dash-month-nav" aria-label="대시보드 월 선택">
+              <button type="button" onclick="moveDashMonth(-1)" aria-label="이전 달" title="이전 달">‹</button>
+              <span class="dash-month-title" id="dashMonthTitle" onclick="openDashMonthPicker()" title="이동할 달 선택"></span>
+              <input type="month" id="dashMonthPicker" onchange="jumpToDashMonth(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
+              <button type="button" onclick="goThisDashMonth()" title="이번 달로 이동">오늘</button>
+              <button type="button" onclick="moveDashMonth(1)" aria-label="다음 달" title="다음 달">›</button>
+            </div>
+            <span class="mini" onclick="openDashMonthFull()">전체 ›</span>
+          </div>
           <div class="dash-month" id="dashMonth"></div>
         </div>
         <div class="card dash-today">
@@ -416,6 +457,7 @@ audio{width:100%;max-width:420px;height:38px;}
           <ul class="task-list" id="dashTasks"></ul>
           <div class="add-inline">
             <input type="text" id="dashNewTask" placeholder="오늘 할 일 추가 (Enter)" onkeydown="if(event.key==='Enter')addTaskQuick('dashNewTask')">
+            <label class="due-inline" title="시간 (선택)">🕒<input type="time" id="dashNewTime"></label>
             <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="dashNewDue"></label>
             <button class="btn sm" onclick="addTaskQuick('dashNewTask')">추가</button>
           </div>
@@ -431,7 +473,7 @@ audio{width:100%;max-width:420px;height:38px;}
           <div id="dashDue"></div>
         </div>
         <div class="card">
-          <h3>🎙️ 최근 회의·미팅 <span class="mini" onclick="switchView('meeting')">전체 ›</span></h3>
+          <h3>🎙️ 최근 회의 <span class="mini" onclick="switchView('meeting')">전체 ›</span></h3>
           <div id="dashMeetings" class="meet-list"></div>
         </div>
       </div>
@@ -449,11 +491,12 @@ audio{width:100%;max-width:420px;height:38px;}
       <div id="dayOffBanner" class="dayoff-banner hidden"></div>
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
-          <h3 style="margin:0">🎙️ 회의 · 미팅 · 공동일정</h3>
+          <h3 style="margin:0">📅 회의 · 공동 · 개인 일정</h3>
           <span style="display:flex;gap:6px">
             <button class="btn soft sm" onclick="openMeetingModal(null, curDate)">＋ 회의</button>
             <button class="btn soft sm" onclick="openMeetingModal(null, curDate, '미팅')">＋ 미팅</button>
             <button class="btn soft sm" id="addSharedBtn" onclick="openSharedEventModal(null, curDate)" style="display:none">＋ 공동일정</button>
+            <button class="btn soft sm" onclick="openPersonalEventModal(null, curDate)">＋ 개인일정</button>
           </span>
         </div>
         <div id="dayEvents"></div>
@@ -466,9 +509,9 @@ audio{width:100%;max-width:420px;height:38px;}
         <ul class="task-list" id="dayTasks"></ul>
         <div class="add-inline">
           <input type="text" id="newTaskTitle" placeholder="할 일 입력 후 Enter" onkeydown="if(event.key==='Enter')addTask()">
-          <select id="newTaskPri"><option value="높음">🔴 높음</option><option value="중간" selected>🟡 중간</option><option value="낮음">🟢 낮음</option></select>
+          <label class="due-inline" title="시간 (선택)">🕒<input type="time" id="newTaskTime"></label>
           <label class="due-inline" title="마감기한 (선택)">⏰<input type="date" id="newTaskDue"></label>
-          <label class="event-inline" title="일정으로 등록 (휴무일에도 이 날짜에 고정, 자동이월 안 됨)"><input type="checkbox" id="newTaskEvent">📅 일정</label>
+          <label class="event-inline" title="선택하면 이 날짜에 고정되며 휴무일 이동·자동이월에서 제외됩니다"><input type="checkbox" id="newTaskEvent">📌 날짜 고정</label>
           <button class="btn" onclick="addTask()">추가</button>
         </div>
       </div>
@@ -478,7 +521,8 @@ audio{width:100%;max-width:420px;height:38px;}
     <section id="view-week" class="hidden">
       <div class="day-nav">
         <button class="nav-btn" onclick="moveWeek(-1)">‹</button>
-        <h2 id="weekTitle"></h2>
+        <h2 id="weekTitle" class="day-title-btn" onclick="openWeekPicker()" title="이동할 주 선택 (클릭)"></h2>
+        <input type="date" id="weekDatePicker" onchange="jumpToWeek(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
         <button class="nav-btn" onclick="moveWeek(1)">›</button>
         <button class="btn soft sm" onclick="goThisWeek()">이번 주</button>
       </div>
@@ -489,7 +533,8 @@ audio{width:100%;max-width:420px;height:38px;}
     <section id="view-month" class="hidden">
       <div class="day-nav">
         <button class="nav-btn" onclick="moveMonth(-1)">‹</button>
-        <h2 id="monthTitle"></h2>
+        <h2 id="monthTitle" class="day-title-btn" onclick="openMonthPicker()" title="이동할 달 선택 (클릭)"></h2>
+        <input type="month" id="monthDatePicker" onchange="jumpToMonth(this.value)" style="width:0;opacity:0;pointer-events:none;padding:0;border:0;">
         <button class="nav-btn" onclick="moveMonth(1)">›</button>
         <button class="btn soft sm" onclick="goThisMonth()">이번 달</button>
       </div>
@@ -513,6 +558,17 @@ audio{width:100%;max-width:420px;height:38px;}
       <div class="cat-tabs" id="contactCatTabs" style="margin-bottom:12px"></div>
       <div class="contact-grid" id="contactGrid"></div>
     </section>
+
+    <!-- 사이트 공유 (비밀번호 잠금) -->
+    <section id="view-sites" class="hidden">
+      <div class="row" style="margin-bottom:6px">
+        <button class="btn" onclick="openSiteModal()">＋ 사이트 추가</button>
+        <input type="search" id="siteSearch" placeholder="사이트·아이디 검색" style="max-width:240px" oninput="renderSites()">
+        <button class="btn ghost sm" onclick="lockSites()" title="잠그고 목록 숨기기">🔒 잠그기</button>
+      </div>
+      <p class="muted" style="margin:0 0 12px">🔐 팀원과 공유하는 사이트 로그인 정보예요. 화면을 벗어나면 자동으로 잠깁니다.</p>
+      <div class="contact-grid" id="sitesGrid"></div>
+    </section>
   </main>
 
   <!-- 우측 메모 패널 -->
@@ -529,6 +585,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <option value="업무" selected>💼</option>
       </select>
       <input type="text" id="newMemo" placeholder="메모 입력 (Enter)" onkeydown="if(event.key==='Enter')addMemo()">
+      <button type="button" class="icon-btn memo-lock-toggle" id="newMemoLock" onclick="toggleNewMemoLock()" title="잠금 메모로 저장">🔓</button>
       <button class="btn sm" onclick="addMemo()">＋</button>
     </div>
     <div id="memoList" style="display:flex;flex-direction:column;gap:8px"></div>
@@ -547,10 +604,11 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], isTeamMember: false };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], sharedSites: [], isTeamMember: false };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
+let dashMonth = todayStr().slice(0, 7);
 let daySortable = null;
 
 function getConfig() {
@@ -594,13 +652,26 @@ function diffDays(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Dat
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 /* ================= 휴무일 로직 ================= */
+function offTypeOf(o) {
+  const m = (o && o.label || '').match(/^\[(연차|휴가|오전 반차|오후 반차|기타 휴무)\]/);
+  return m ? m[1] : '휴무';
+}
+function offIcon(o) { return ({ '연차': '🏖️', '휴가': '🌴', '오전 반차': '🌤️', '오후 반차': '🌙', '기타 휴무': '📌' })[offTypeOf(o)] || '🏖️'; }
+function dayOffIcon(ymd) { const o = state.daysOff.find(x => x.date === ymd); return o ? offIcon(o) : (state.weeklyOff.includes(dowOf(ymd)) ? '🏖️' : ''); }
+function isPartialOffRecord(o) { return ['오전 반차', '오후 반차'].includes(offTypeOf(o)); }
+function partialOffOf(ymd) { return state.daysOff.find(o => o.date === ymd && isPartialOffRecord(o)) || null; }
+function offLabelText(o) {
+  const raw = (o && o.label || '휴무').trim();
+  const m = raw.match(/^\[([^\]]+)\]\s*(.*)$/);
+  return m ? `${m[1]}${m[2] ? ' · ' + m[2] : ''}` : raw;
+}
 function isDayOff(ymd) {
   if (state.weeklyOff.includes(dowOf(ymd))) return true;
-  return state.daysOff.some(o => o.date === ymd);
+  return state.daysOff.some(o => o.date === ymd && !isPartialOffRecord(o));
 }
 function dayOffLabel(ymd) {
   const o = state.daysOff.find(o => o.date === ymd);
-  if (o) return o.label || '휴무';
+  if (o) return offLabelText(o);
   if (state.weeklyOff.includes(dowOf(ymd))) return `매주 ${DOW_KO[dowOf(ymd)]}요일 휴무`;
   return '';
 }
@@ -616,13 +687,17 @@ async function init() {
   if (!cfg) { show('setupScreen'); return; }
   try { sb = window.supabase.createClient(cfg.url, cfg.key); }
   catch (e) { localStorage.removeItem(CFG_KEY); show('setupScreen'); return; }
+  // 비밀번호 재설정(복구) 링크로 들어온 경우 → 새 비밀번호 설정 화면
+  const isRecovery = /type=recovery/.test(location.hash);
+  sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') show('resetScreen'); });
+  if (isRecovery) { show('resetScreen'); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { show('loginScreen'); return; }
   user = session.user;
   await startApp();
 }
 function show(id) {
-  ['setupScreen', 'loginScreen', 'app'].forEach(x => document.getElementById(x).classList.add('hidden'));
+  ['setupScreen', 'loginScreen', 'resetScreen', 'app'].forEach(x => document.getElementById(x).classList.add('hidden'));
   document.getElementById(id).classList.remove('hidden');
 }
 async function doLogin() {
@@ -643,6 +718,29 @@ async function doSignup() {
   else loginMsg('가입 완료! 이메일 인증 메일을 확인한 뒤 로그인하세요.', false);
 }
 async function doLogout() { await sb.auth.signOut(); location.reload(); }
+async function doForgotPassword() {
+  const email = document.getElementById('loginEmail').value.trim();
+  if (!email) return loginMsg('먼저 이메일 칸에 본인 이메일을 입력한 뒤 눌러 주세요.', true);
+  const redirectTo = location.origin + location.pathname;
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) return loginMsg('메일 전송 실패: ' + koAuthErr(error.message), true);
+  loginMsg(`📧 ${email} 로 재설정 링크를 보냈어요. 메일함(스팸함 포함)을 확인하고 링크를 열면 새 비밀번호를 정할 수 있어요.`, false);
+}
+async function doResetPassword() {
+  const pw = document.getElementById('resetPw').value;
+  const pw2 = document.getElementById('resetPw2').value;
+  if (pw.length < 6) return resetMsg('6자 이상 비밀번호를 입력하세요.', true);
+  if (pw !== pw2) return resetMsg('두 비밀번호가 일치하지 않습니다.', true);
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) return resetMsg('변경 실패: ' + koAuthErr(error.message), true);
+  resetMsg('✅ 비밀번호가 변경됐어요! 잠시 후 로그인 화면으로 이동합니다.', false);
+  await sb.auth.signOut();
+  setTimeout(() => { location.hash = ''; location.reload(); }, 1800);
+}
+function resetMsg(m, isErr) {
+  const el = document.getElementById('resetMsg');
+  el.textContent = m; el.className = 'auth-msg ' + (isErr ? 'err' : 'ok');
+}
 function loginMsg(m, isErr) {
   const el = document.getElementById('loginMsg');
   el.textContent = m; el.className = 'auth-msg ' + (isErr ? 'err' : 'ok');
@@ -692,11 +790,24 @@ async function loadAll() {
   state.teamMembers = (tm && tm.data) || [];
   state.isAdmin = !!(user && user.email && state.teamMembers.some(x => x.email === user.email && x.is_admin));
   state.sharedEvents = (se && se.data) || [];
+  state.personalEvents = [];
+  try {
+    const pe = await sb.from('personal_events').select('*');
+    if (pe.error) console.warn('개인 일정 불러오기:', pe.error.message);
+    else state.personalEvents = pe.data || [];
+  } catch (e) { console.warn('개인 일정 불러오기 실패:', e); }
+  state.sharedSites = [];
+  try {
+    const ss = await sb.from('shared_sites').select('*').order('name');
+    if (ss.error) console.warn('사이트 공유 불러오기:', ss.error.message);
+    else state.sharedSites = ss.data || [];
+  } catch (e) { console.warn('사이트 공유 불러오기 실패:', e); }
   state.isTeamMember = !!(user && user.email && state.teamMembers.some(x => x.email === user.email));
 }
 /* 날짜별 회의·공동일정 (시간순) */
 function meetingsOf(ymd) { return state.meetings.filter(m => m.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
 function sharedOf(ymd) { return state.sharedEvents.filter(e => e.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
+function personalOf(ymd) { return state.personalEvents.filter(e => e.date === ymd).sort((a, b) => (a.start_time || '99') < (b.start_time || '99') ? -1 : 1); }
 async function rolloverTasks() {
   const target = nextWorkday(todayStr());
   // 일정(is_event)은 특정 날짜에 고정되므로 자동이월에서 제외
@@ -855,12 +966,22 @@ async function ensureRoutineTasks() {
 /* ================= 뷰 전환 ================= */
 function switchView(v) {
   document.querySelectorAll('.snav[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  ['dash', 'day', 'week', 'month', 'meeting', 'contact'].forEach(x =>
+  ['dash', 'day', 'week', 'month', 'meeting', 'contact', 'sites'].forEach(x =>
     document.getElementById('view-' + x).classList.toggle('hidden', x !== v));
+  // 사이트 공유 화면을 벗어나면 비밀번호 내용을 DOM에서 비워 잠금 유지
+  if (v !== 'sites') { const sg = document.getElementById('sitesGrid'); if (sg) sg.innerHTML = ''; }
   renderAll();
 }
 function renderAll() { renderDash(); renderDay(); renderWeek(); renderMonth(); renderMemos(); renderMeetings(); renderContacts(); }
-function toggleMemoPanel() { document.getElementById('memoPanel').classList.toggle('open'); }
+function toggleMemoPanel() {
+  const panel = document.getElementById('memoPanel');
+  panel.classList.toggle('open');
+  // 메모 패널을 닫으면 열어둔 잠긴 메모를 모두 다시 잠근다
+  if (!panel.classList.contains('open') && unlockedMemoContent.size) {
+    unlockedMemoContent.clear();
+    renderMemos();
+  }
+}
 
 /* ===== 사용자별 표시 이름 (사이드바 로고) ===== */
 function updateLogo() {
@@ -933,15 +1054,11 @@ async function removeTeamMember(email) {
 
 /* ================= 공통: 업무 조작 ================= */
 function tasksOf(ymd) { return state.tasks.filter(t => t.date === ymd); }
-function priOrder(p) { return p === '높음' ? 0 : p === '중간' ? 1 : 2; }
-// 정렬: 미완료 우선 → 수동 순서(sort) → 우선순위
-function taskSort(a, b) { return (a.done - b.done) || ((a.sort || 0) - (b.sort || 0)) || (priOrder(a.priority) - priOrder(b.priority)); }
+// 정렬: 미완료 우선 → 수동 순서(sort)
+function taskSort(a, b) { return (a.done - b.done) || ((a.sort || 0) - (b.sort || 0)); }
 // 주간용: 반복(고정) 업무를 맨 위로, 그 다음 일반 정렬
 function weekTaskSort(a, b) { return ((b.routine_id ? 1 : 0) - (a.routine_id ? 1 : 0)) || taskSort(a, b); }
-function priChip(p) {
-  const cls = p === '높음' ? 'p-high' : p === '중간' ? 'p-mid' : 'p-low';
-  return `<span class="chip ${cls}">${esc(p)}</span>`;
-}
+
 function ddayChip(due) {
   if (!due) return '';
   const n = diffDays(todayStr(), due);
@@ -950,14 +1067,19 @@ function ddayChip(due) {
   return `<span class="dday ${cls}" title="마감 ${fmtKo(due)}">⏰ ${label}</span>`;
 }
 // isEvent=true(일정): 휴무일에도 그 날짜에 그대로 등록, 자동이월 대상에서 제외
-async function createTask(title, ymd, priority, dueDate, isEvent = false) {
+async function createTask(title, ymd, priority, dueDate, isEvent = false, time = null) {
   let date = ymd, moved = false;
   // 일정은 날짜 이동 없음. 일반 업무만 휴무일이면 다음 근무일로 이동
   if (!isEvent && isDayOff(ymd)) { date = nextWorkday(ymd); moved = date !== ymd; }
   const maxSort = state.tasks.filter(x => x.date === date && !x.done).reduce((m, x) => Math.max(m, x.sort || 0), 0);
-  const { data, error } = await sb.from('tasks')
-    .insert({ user_id: user.id, title, date, priority, done: false, note: '', carried_over: 0, due_date: dueDate || null, is_event: isEvent, sort: maxSort + 1 })
-    .select().single();
+  const row = { user_id: user.id, title, date, priority, done: false, note: '', carried_over: 0, due_date: dueDate || null, is_event: isEvent, time: time || null, sort: maxSort + 1 };
+  let { data, error } = await sb.from('tasks').insert(row).select().single();
+  // DB에 time 컬럼이 아직 없으면 시간 없이 재시도 (마이그레이션 전 호환)
+  if (error && /time/i.test(error.message)) {
+    delete row.time;
+    ({ data, error } = await sb.from('tasks').insert(row).select().single());
+    if (!error) toast('추가됐어요. (시간은 DB 준비 후 저장됩니다)');
+  }
   if (error) return toast('추가 실패: ' + error.message);
   state.tasks.push(data);
   if (isEvent) toast(`📅 ${fmtKo(date)}에 일정을 등록했어요.`);
@@ -968,16 +1090,18 @@ async function addTask() {
   const input = document.getElementById('newTaskTitle');
   const title = input.value.trim(); if (!title) return;
   const due = document.getElementById('newTaskDue');
+  const time = document.getElementById('newTaskTime');
   const isEvent = document.getElementById('newTaskEvent').checked;
-  await createTask(title, curDate, document.getElementById('newTaskPri').value, due.value || null, isEvent);
-  input.value = ''; due.value = ''; input.focus();
+  await createTask(title, curDate, '중간', due.value || null, isEvent, time ? (time.value || null) : null);
+  input.value = ''; due.value = ''; if (time) time.value = ''; input.focus();
 }
 async function addTaskQuick(inputId) {
   const input = document.getElementById(inputId);
   const title = input.value.trim(); if (!title) return;
   const due = document.getElementById('dashNewDue');
-  await createTask(title, todayStr(), '중간', due ? (due.value || null) : null);
-  input.value = ''; if (due) due.value = ''; input.focus();
+  const time = document.getElementById('dashNewTime');
+  await createTask(title, todayStr(), '중간', due ? (due.value || null) : null, false, time ? (time.value || null) : null);
+  input.value = ''; if (due) due.value = ''; if (time) time.value = ''; input.focus();
 }
 async function addTaskOn(ymd) {
   const title = (prompt(`${fmtKo(ymd)} 할 일 입력`) || '').trim();
@@ -1018,17 +1142,12 @@ function openTaskModal(id) {
     <h3>업무 수정 ${t.routine_id ? '<span class="chip routine">🔁 고정 업무</span>' : ''}</h3>
     <label>업무명</label><input id="tmTitle" value="${esc(t.title)}">
     <label>날짜</label><input id="tmDate" type="date" value="${t.date}">
+    <label>시간 (선택)</label><input id="tmTime" type="time" value="${t.time || ''}">
     <label>마감기한 (선택)</label><input id="tmDue" type="date" value="${t.due_date || ''}">
-    <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}> 📅 일정으로 지정 (휴무일에도 이 날짜에 고정, 자동이월 안 함)</label>
-    <label>우선순위</label>
-    <select id="tmPri">
-      <option ${t.priority === '높음' ? 'selected' : ''}>높음</option>
-      <option ${t.priority === '중간' ? 'selected' : ''}>중간</option>
-      <option ${t.priority === '낮음' ? 'selected' : ''}>낮음</option>
-    </select>
+    <label class="event-check"><input id="tmEvent" type="checkbox" ${t.is_event ? 'checked' : ''}><span><b>📌 날짜 고정</b><small>휴무일 이동과 자동 이월에서 제외합니다.</small></span></label>
     <label>비고</label><textarea id="tmNote" rows="2">${esc(t.note || '')}</textarea>
     ${linked.length ? `<label>연결된 회의</label><div class="linked-chips">${linked.map(m =>
-      `<span class="chip meet" onclick="closeModal();openMeetingModal('${m.id}')">${mBadge(m)} ${esc(m.title)}</span>`).join('')}</div>` : ''}
+      `<span class="chip meet" onclick="closeModal();openMeetingModal('${m.id}')">🎙️ ${esc(m.title)}</span>`).join('')}</div>` : ''}
     <div class="foot">
       <button class="btn ghost" onclick="closeModal()">취소</button>
       <button class="btn" onclick="saveTaskModal('${id}')">저장</button>
@@ -1045,12 +1164,18 @@ async function saveTaskModal(id) {
   }
   const upd = {
     title: document.getElementById('tmTitle').value.trim() || t.title,
-    date, priority: document.getElementById('tmPri').value,
+    date,
     note: document.getElementById('tmNote').value.trim(),
     due_date: document.getElementById('tmDue').value || null,
+    time: document.getElementById('tmTime').value || null,
     is_event: isEvent,
   };
-  const { error } = await sb.from('tasks').update(upd).eq('id', id);
+  let { error } = await sb.from('tasks').update(upd).eq('id', id);
+  // DB에 time 컬럼이 아직 없으면 시간 없이 재시도 (마이그레이션 전 호환)
+  if (error && /time/i.test(error.message)) {
+    delete upd.time;
+    ({ error } = await sb.from('tasks').update(upd).eq('id', id));
+  }
   if (error) return toast('저장 실패: ' + error.message);
   Object.assign(t, upd); closeModal(); renderAll();
 }
@@ -1062,24 +1187,50 @@ function taskLi(t, withOrder) {
     ${drag ? '<span class="drag-handle" title="드래그해서 순서 변경">≡</span>' : ''}
     <div class="task-check ${t.done ? 'done' : ''}" onclick="toggleTask('${t.id}')">${t.done ? '✓' : ''}</div>
     <div class="task-title ${t.done ? 'done' : ''}" onclick="openTaskModal('${t.id}')">
-      ${esc(t.title)}${t.note ? `<span class="note">${esc(t.note)}</span>` : ''}
+      ${t.time ? `<span class="task-time">${esc(t.time)}</span>` : ''}${esc(t.title)}${t.note ? `<span class="note">${esc(t.note)}</span>` : ''}
     </div>
-    ${t.is_event ? '<span class="chip event">📅 일정</span>' : ''}
+    ${t.is_event ? '<span class="chip event">📌 날짜 고정</span>' : ''}
     ${t.routine_id ? '<span class="chip routine">🔁</span>' : ''}
     ${t.carried_over ? '<span class="chip carry">이월</span>' : ''}
     ${ddayChip(t.due_date)}
-    ${priChip(t.priority)}
     <button class="icon-btn" onclick="openTaskModal('${t.id}')" title="수정 (마감기한·날짜·비고)">✏️</button>
     <button class="icon-btn" onclick="delTask('${t.id}')" title="삭제">✕</button>`;
   return li;
 }
 
 /* ================= 대시보드 ================= */
-// 대시보드 미니 월간 캘린더 (이번 달, 점=업무/회의/공동일정)
+// 대시보드 미니 월간 캘린더 (선택한 달, 회의/공동일정)
+function moveDashMonth(n) {
+  const [y, m] = dashMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  dashMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  renderDashMonth();
+}
+function goThisDashMonth() {
+  dashMonth = todayStr().slice(0, 7);
+  renderDashMonth();
+}
+function openDashMonthPicker() {
+  const inp = document.getElementById('dashMonthPicker');
+  if (!inp) return;
+  inp.value = dashMonth;
+  try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+}
+function jumpToDashMonth(v) {
+  if (!v) return;
+  dashMonth = v;
+  renderDashMonth();
+}
+function openDashMonthFull() {
+  curMonth = dashMonth;
+  switchView('month');
+}
 function renderDashMonth() {
   const box = document.getElementById('dashMonth'); if (!box) return;
-  const ym = todayStr().slice(0, 7);
+  const ym = dashMonth;
   const [y, m] = ym.split('-').map(Number);
+  const title = document.getElementById('dashMonthTitle');
+  if (title) title.textContent = `${y}년 ${m}월`;
   let html = ['일', '월', '화', '수', '목', '금', '토'].map(d => `<div class="dmdow">${d}</div>`).join('');
   let d = addDays(`${ym}-01`, -dowOf(`${ym}-01`));   // 일요일 시작
   const last = `${ym}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
@@ -1087,11 +1238,12 @@ function renderDashMonth() {
     if (d > last && dowOf(d) === 0) break;
     const inMonth = d.slice(0, 7) === ym;
     const off = isDayOff(d);
-    // 대시보드 월간 캘린더엔 회의·공동일정만 표시 (업무·고정업무 제외)
-    const items = meetingsOf(d).map(mm => `<div class="dmt dmt-meet">${mBadge(mm)}${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
-      .concat(sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`));
+    // 대시보드 월간 캘린더엔 회의·공동일정·개인일정 표시
+    const items = meetingsOf(d).map(mm => `<div class="dmt dmt-meet">🎙️${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
+      .concat(sharedOf(d).map(ev => `<div class="dmt dmt-shared">👥${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
+      .concat(personalOf(d).map(ev => `<div class="dmt dmt-personal">🌷${ev.start_time ? esc(ev.start_time) + ' ' : ''}${esc(ev.title)}</div>`));
     const cls = 'dmcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
-    let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' 🏖️' : ''}</div>`;
+    let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' ' + dayOffIcon(d) : ''}</div>`;
     items.slice(0, 3).forEach(h => cellHtml += h);
     if (items.length > 3) cellHtml += `<div class="dmmore">+${items.length - 3}건</div>`;
     html += `<div class="${cls}" data-d="${d}">${cellHtml}</div>`;
@@ -1120,7 +1272,7 @@ function renderDash() {
   document.getElementById('dashProgTxt').textContent = list.length ? `${done}/${list.length} 완료` : '—';
   const offNote = document.getElementById('dashOffNote');
   if (isDayOff(today)) {
-    offNote.textContent = `🏖️ 오늘은 ${dayOffLabel(today)}! 푹 쉬세요.`;
+    offNote.textContent = `${dayOffIcon(today)} 오늘은 ${dayOffLabel(today)}! 푹 쉬세요.`;
     offNote.classList.remove('hidden');
   } else offNote.classList.add('hidden');
 
@@ -1149,8 +1301,8 @@ function renderDash() {
     const cell = document.createElement('div');
     cell.className = 'cellm' + (d === today ? ' today' : '') + (isDayOff(d) ? ' off' : '');
     let html = `<b>${DOW_KO[dowOf(d)]} ${Number(d.slice(8))}</b>`;
-    html += `<span class="cnt">${isDayOff(d) ? '🏖️ 휴무' : (ts.length ? `${dn}/${ts.length} 완료` : '·')}</span>`;
-    meetingsOf(d).forEach(mm => { html += `<div class="ti ti-meet">${mBadge(mm)} ${esc(mm.title)}</div>`; });
+    html += `<span class="cnt">${isDayOff(d) ? `${dayOffIcon(d)} 휴무` : (ts.length ? `${dn}/${ts.length} 완료` : '·')}</span>`;
+    meetingsOf(d).forEach(mm => { html += `<div class="ti ti-meet">🎙️ ${esc(mm.title)}</div>`; });
     sharedOf(d).forEach(ev => { html += `<div class="ti ti-shared">👥 ${esc(ev.title)}</div>`; });
     ts.slice(0, 6).forEach(t => {
       html += `<div class="ti ${t.done ? 'done' : ''}">${t.routine_id ? '🔁 ' : ''}${esc(t.title)}</div>`;
@@ -1232,7 +1384,10 @@ function renderDay() {
   document.getElementById('dayTitle').textContent = fmtKo(curDate) + (isToday ? ' · 오늘' : '');
   const banner = document.getElementById('dayOffBanner');
   if (isDayOff(curDate)) {
-    banner.textContent = `🏖️ ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 세미나 등 일정은 '📅 일정'을 체크하면 이 날짜에 그대로 등록돼요.`;
+    banner.textContent = `${dayOffIcon(curDate)} ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 이 날짜에 두려면 '📌 날짜 고정'을 선택하세요.`;
+    banner.classList.remove('hidden');
+  } else if (partialOffOf(curDate)) {
+    banner.textContent = `🌓 ${dayOffLabel(curDate)} — 반차 일정입니다. 업무와 고정 업무는 이 날짜에 정상 배정됩니다.`;
     banner.classList.remove('hidden');
   } else banner.classList.add('hidden');
   const list = tasksOf(curDate).sort(taskSort);
@@ -1252,28 +1407,43 @@ function renderDay() {
 function renderDayEvents(ymd) {
   const box = document.getElementById('dayEvents'); if (!box) return;
   const asb = document.getElementById('addSharedBtn'); if (asb) asb.style.display = state.isTeamMember ? '' : 'none';
-  const ms = meetingsOf(ymd), ses = sharedOf(ymd);
-  if (!ms.length && !ses.length) { box.innerHTML = '<div class="muted">등록된 회의·공동일정이 없어요.</div>'; return; }
+  const ms = meetingsOf(ymd), ses = sharedOf(ymd), pes = personalOf(ymd);
+  if (!ms.length && !ses.length && !pes.length) { box.innerHTML = '<div class="muted">등록된 회의·공동·개인 일정이 없어요.</div>'; return; }
   box.innerHTML = '';
   ms.forEach(m => box.appendChild(eventRow('meet', m)));
   ses.forEach(e => box.appendChild(eventRow('shared', e)));
+  pes.forEach(e => box.appendChild(eventRow('personal', e)));
 }
 function eventRow(kind, x) {
   const div = document.createElement('div');
-  div.className = 'ev-row ' + (kind === 'meet' ? 'ev-meet' : 'ev-shared');
-  const time = `<span class="ev-time">${x.time ? esc(x.time) : ''}</span>`;
-  const badge = kind === 'meet' ? mBadge(x) : '👥';
+  div.className = 'ev-row ' + (kind === 'meet' ? 'ev-meet' : kind === 'personal' ? 'ev-personal' : 'ev-shared');
+  const shownTime = kind === 'personal' ? x.start_time : x.time;
+  const time = `<span class="ev-time">${shownTime ? esc(shownTime) : ''}</span>`;
+  const badge = kind === 'meet' ? mBadge(x) : kind === 'personal' ? '🌷' : '👥';
   const sub = kind === 'meet'
     ? (x.audio_path ? ' 🔊' : '') + ((x.task_ids || []).length ? ` 🔗${x.task_ids.length}` : '')
-    : (x.note ? ' · ' + esc(x.note) : '') + (x.created_by ? ` · ${esc((x.created_by || '').split('@')[0])}` : '');
+    : kind === 'personal'
+      ? (x.end_time ? ` ~ ${esc(x.end_time)}` : '') + (x.location ? ` · ${esc(x.location)}` : '') + (x.note ? ` · ${esc(x.note)}` : '')
+      : (x.note ? ' · ' + esc(x.note) : '') + (x.created_by ? ` · ${esc((x.created_by || '').split('@')[0])}` : '');
   div.innerHTML = `${time}<span class="ev-title">${badge} ${esc(x.title)}<span class="ev-sub">${sub}</span></span>`;
-  div.onclick = () => kind === 'meet' ? openMeetingModal(x.id) : openSharedEventModal(x.id);
+  div.onclick = () => kind === 'meet' ? openMeetingModal(x.id) : kind === 'personal' ? openPersonalEventModal(x.id) : openSharedEventModal(x.id);
   return div;
 }
 
 /* ================= 주간 ================= */
 function moveWeek(n) { curWeekStart = addDays(curWeekStart, n * 7); renderWeek(); }
 function goThisWeek() { curWeekStart = weekStart(todayStr()); renderWeek(); }
+function openWeekPicker() {
+  const inp = document.getElementById('weekDatePicker');
+  if (!inp) return;
+  inp.value = curWeekStart;
+  try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+}
+function jumpToWeek(v) {
+  if (!v) return;
+  curWeekStart = weekStart(v);
+  renderWeek();
+}
 function renderWeek() {
   const end = addDays(curWeekStart, 5); // 월~토 표시
   document.getElementById('weekTitle').textContent = `${fmtKo(curWeekStart)} ~ ${fmtKo(end)}`;
@@ -1287,13 +1457,14 @@ function renderWeek() {
     col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
     const ts = tasksOf(d).sort(weekTaskSort);
     col.innerHTML = `<h4><span>${DOW_KO[dowOf(d)]} <span class="d">${Number(d.slice(8))}일</span></span>
-      ${off ? `<span class="off-tag">🏖️</span>` : ''}</h4>`;
-    meetingsOf(d).forEach(mm => { const w = document.createElement('div'); w.className = 'wev wev-meet'; w.innerHTML = `${mm.time ? esc(mm.time) + ' ' : ''}${mBadge(mm)} ${esc(mm.title)}`; w.onclick = () => openMeetingModal(mm.id); col.appendChild(w); });
+      ${off ? `<span class="off-tag">${dayOffIcon(d)}</span>` : ''}</h4>`;
+    meetingsOf(d).forEach(mm => { const w = document.createElement('div'); w.className = 'wev wev-meet'; w.innerHTML = `${mm.time ? esc(mm.time) + ' ' : ''}🎙️ ${esc(mm.title)}`; w.onclick = () => openMeetingModal(mm.id); col.appendChild(w); });
     sharedOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-shared'; w.innerHTML = `${ev.time ? esc(ev.time) + ' ' : ''}👥 ${esc(ev.title)}`; w.onclick = () => openSharedEventModal(ev.id); col.appendChild(w); });
+personalOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-personal'; w.innerHTML = `${ev.start_time ? esc(ev.start_time) + ' ' : ''}🌷 ${esc(ev.title)}`; w.onclick = () => openPersonalEventModal(ev.id); col.appendChild(w); });
     ts.forEach(t => {
       const w = document.createElement('div'); w.className = 'wtask';
       w.innerHTML = `<div class="task-check ${t.done ? 'done' : ''}" onclick="event.stopPropagation();toggleTask('${t.id}')">${t.done ? '✓' : ''}</div>
-        <span class="t ${t.done ? 'done' : ''}">${t.routine_id ? '🔁 ' : ''}${esc(t.title)}</span>${ddayChip(t.due_date)}`;
+        <span class="t ${t.done ? 'done' : ''}">${t.time ? esc(t.time) + ' ' : ''}${t.routine_id ? '🔁 ' : ''}${esc(t.title)}</span>${ddayChip(t.due_date)}`;
       w.onclick = () => openTaskModal(t.id);
       col.appendChild(w);
     });
@@ -1313,6 +1484,17 @@ function moveMonth(n) {
   renderMonth();
 }
 function goThisMonth() { curMonth = todayStr().slice(0, 7); renderMonth(); }
+function openMonthPicker() {
+  const inp = document.getElementById('monthDatePicker');
+  if (!inp) return;
+  inp.value = curMonth;
+  try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
+}
+function jumpToMonth(v) {
+  if (!v) return;
+  curMonth = v;
+  renderMonth();
+}
 function renderMonth() {
   const [y, m] = curMonth.split('-').map(Number);
   document.getElementById('monthTitle').textContent = `${y}년 ${m}월`;
@@ -1331,10 +1513,11 @@ function renderMonth() {
     const ts = tasksOf(d);
     // 반복 고정업무(매주/2주/매월) 예정 표시 — 아직 생성 안 된 도래분만(중복 방지)
     const rOcc = state.routines.filter(r => r.active && r.show_on_calendar !== false && routineOccursOn(r, d) && !ts.some(t => t.routine_id === r.id));
-    let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? '<span>🏖️</span>' : ''}</div>`;
+    let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? `<span>${dayOffIcon(d)}</span>` : ''}</div>`;
     // 셀 상단: 회의(보라)·공동일정(초록) → 반복 → 실제 업무
-    const mItems = meetingsOf(d).map(mm => `<div class="mt mt-meet">${mBadge(mm)} ${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
+    const mItems = meetingsOf(d).map(mm => `<div class="mt mt-meet">🎙️ ${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
       .concat(sharedOf(d).map(ev => `<div class="mt mt-shared">👥 ${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
+.concat(personalOf(d).map(ev => `<div class="mt mt-personal">🌷 ${ev.start_time ? esc(ev.start_time) + ' ' : ''}${esc(ev.title)}</div>`))
       .concat(rOcc.map(r => `<div class="mt routine-mark${routineOccurrenceDone(r, d) ? ' done' : ''}">🔁 ${esc(r.title)}</div>`))
       .concat(ts.map(t => `<div class="mt ${t.done ? 'done' : ''}">${esc(t.title)}</div>`));
     mItems.slice(0, 4).forEach(h => html += h);
@@ -1356,28 +1539,123 @@ function setMemoFilter(cat) {
 function catChip(c) {
   return c === '업무' ? '<span class="chip cat-w">💼 업무</span>' : '<span class="chip cat-p">🙂 개인</span>';
 }
+const MEMO_LOCK_PREFIX = '🔐v1:';
+const unlockedMemoContent = new Map();
+let newMemoLocked = false;
+let memoPasswordResolve = null;
+function isLockedMemo(m) { return !!(m && typeof m.content === 'string' && m.content.startsWith(MEMO_LOCK_PREFIX)); }
+function toggleNewMemoLock() {
+  newMemoLocked = !newMemoLocked;
+  const btn = document.getElementById('newMemoLock');
+  if (btn) { btn.textContent = newMemoLocked ? '🔒' : '🔓'; btn.classList.toggle('on', newMemoLocked); btn.title = newMemoLocked ? '잠금 메모로 저장됨' : '잠금 메모로 저장'; }
+}
+function bytesToB64(bytes) {
+  let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s);
+}
+function b64ToBytes(s) {
+  const raw = atob(s); return Uint8Array.from(raw, c => c.charCodeAt(0));
+}
+async function memoKey(password, salt) {
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', salt, iterations: 150000, hash: 'SHA-256' }, material, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function encryptMemoContent(content, password) {
+  if (!crypto.subtle) throw new Error('이 브라우저는 메모 암호화를 지원하지 않습니다.');
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const key = await memoKey(password, salt);
+  const encrypted = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(content)));
+  return MEMO_LOCK_PREFIX + [bytesToB64(salt), bytesToB64(iv), bytesToB64(encrypted)].join(':');
+}
+async function decryptMemoContent(value, password) {
+  const parts = value.slice(MEMO_LOCK_PREFIX.length).split(':');
+  if (parts.length !== 3) throw new Error('잠금 메모 형식이 올바르지 않습니다.');
+  const salt = b64ToBytes(parts[0]), iv = b64ToBytes(parts[1]), encrypted = b64ToBytes(parts[2]);
+  const key = await memoKey(password, salt);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted));
+}
+function requestMemoPassword(confirmMode = false) {
+  return new Promise(resolve => {
+    memoPasswordResolve = resolve;
+    openModal(`
+      <h3>🔒 메모 비밀번호 ${confirmMode ? '설정' : '입력'}</h3>
+      <p class="muted" style="margin:0 0 10px">${confirmMode ? '비밀번호를 잊으면 잠긴 메모를 복구할 수 없습니다.' : '이 메모를 열려면 저장할 때 설정한 비밀번호를 입력하세요.'}</p>
+      <label>비밀번호</label><input type="password" id="memoPw" autocomplete="off" onkeydown="if(event.key==='Enter')submitMemoPassword(${confirmMode})">
+      ${confirmMode ? '<label>비밀번호 확인</label><input type="password" id="memoPw2" autocomplete="off" onkeydown="if(event.key===\'Enter\')submitMemoPassword(true)">' : ''}
+      <div class="foot"><button class="btn ghost" onclick="cancelMemoPassword()">취소</button><button class="btn" onclick="submitMemoPassword(${confirmMode})">확인</button></div>`);
+    setTimeout(() => document.getElementById('memoPw')?.focus(), 0);
+  });
+}
+function submitMemoPassword(confirmMode) {
+  const pw = document.getElementById('memoPw').value;
+  if (pw.length < 4) return toast('비밀번호를 4자 이상 입력하세요.');
+  if (confirmMode && pw !== document.getElementById('memoPw2').value) return toast('비밀번호가 일치하지 않습니다.');
+  const resolve = memoPasswordResolve; memoPasswordResolve = null; closeModal(); if (resolve) resolve(pw);
+}
+function cancelMemoPassword() {
+  const resolve = memoPasswordResolve; memoPasswordResolve = null; closeModal(); if (resolve) resolve(null);
+}
+async function readableMemoContent(m) {
+  if (!isLockedMemo(m)) return m.content;
+  if (unlockedMemoContent.has(m.id)) return unlockedMemoContent.get(m.id);
+  const pw = await requestMemoPassword(false); if (!pw) return null;
+  try {
+    const plain = await decryptMemoContent(m.content, pw); unlockedMemoContent.set(m.id, plain); return plain;
+  } catch (e) { toast('비밀번호가 맞지 않습니다.'); return null; }
+}
 async function addMemo() {
   const input = document.getElementById('newMemo');
-  const content = input.value.trim(); if (!content) return;
+  const plain = input.value.trim(); if (!plain) return;
   const category = document.getElementById('newMemoCat').value;
+  let content = plain;
+  if (newMemoLocked) {
+    const pw = await requestMemoPassword(true); if (!pw) return;
+    try { content = await encryptMemoContent(plain, pw); } catch (e) { return toast(e.message); }
+  }
   const { data, error } = await sb.from('memos')
     .insert({ user_id: user.id, content, pinned: false, category }).select().single();
   if (error) return toast('메모 추가 실패: ' + error.message);
-  state.memos.unshift(data); input.value = ''; renderMemos();
+  state.memos.unshift(data);
+  if (newMemoLocked) unlockedMemoContent.set(data.id, plain);
+  input.value = '';
+  if (newMemoLocked) { newMemoLocked = false; const btn = document.getElementById('newMemoLock'); if (btn) { btn.textContent = '🔓'; btn.classList.remove('on'); } }
+  renderMemos();
 }
-function toggleMemoExpand(el) { el.closest('.memo-card').classList.toggle('expanded'); }
+function toggleMemoExpand(el) {
+  const selected = window.getSelection && window.getSelection().toString().trim();
+  if (selected) return;
+  const card = el.closest('.memo-card');
+  if (!card) return;
+  const id = card.dataset.id;
+  // 잠긴 메모를 접으면(닫으면) 다시 잠금 상태로 되돌린다
+  if (card.classList.contains('expanded') && id && unlockedMemoContent.has(id)) {
+    unlockedMemoContent.delete(id);
+    renderMemos();
+    return;
+  }
+  card.classList.toggle('expanded');
+}
+async function unlockMemo(id) {
+  const m = state.memos.find(x => x.id === id); if (!m) return;
+  const plain = await readableMemoContent(m); if (plain === null) return;
+  renderMemos();
+  setTimeout(() => document.querySelector(`.memo-card[data-id="${id}"]`)?.classList.add('expanded'), 0);
+}
 function renderMemos() {
   const grid = document.getElementById('memoList');
   const filtered = state.memos.filter(m => memoFilter === '전체' || (m.category || '개인') === memoFilter);
   const sorted = [...filtered].sort((a, b) => (b.pinned - a.pinned) || (b.updated_at > a.updated_at ? 1 : -1));
   grid.innerHTML = sorted.length ? '' : '<div class="muted">메모가 없어요.</div>';
   for (const m of sorted) {
+    const locked = isLockedMemo(m), revealed = unlockedMemoContent.has(m.id);
+    const visible = locked ? (revealed ? unlockedMemoContent.get(m.id) : '🔒 잠긴 메모') : m.content;
     const card = document.createElement('div');
-    card.className = 'memo-card' + (m.pinned ? ' pinned' : '');
+    card.className = 'memo-card' + (m.pinned ? ' pinned' : '') + (locked ? ' locked' : '');
+    card.dataset.id = m.id;
     card.innerHTML = `
-      <div class="m-row" onclick="toggleMemoExpand(this)"><span class="m-caret">▸</span><div class="content">${esc(m.content)}</div></div>
+      <div class="m-row" onclick="${locked && !revealed ? `unlockMemo('${m.id}')` : 'toggleMemoExpand(this)'}"><span class="m-caret">${locked && !revealed ? '🔒' : '▸'}</span><div class="content">${esc(visible)}</div></div>
       <div class="meta">
-        <span>${catChip(m.category || '개인')} ${(m.updated_at || '').slice(5, 10).replace('-', '/')}</span>
+        <span>${catChip(m.category || '개인')} ${locked ? '<span class="chip routine">🔒 암호화</span>' : ''} ${(m.updated_at || '').slice(5, 10).replace('-', '/')}</span>
         <span>
           <button class="icon-btn" title="수정" onclick="editMemo('${m.id}')">✏️</button>
           <button class="icon-btn" title="고정" onclick="pinMemo('${m.id}')">${m.pinned ? '📌' : '📍'}</button>
@@ -1389,6 +1667,7 @@ function renderMemos() {
 }
 async function editMemo(id) {
   const m = state.memos.find(x => x.id === id); if (!m) return;
+  const content = await readableMemoContent(m); if (content === null) return;
   const cat = m.category || '개인';
   openModal(`
     <h3>메모 수정</h3>
@@ -1398,7 +1677,9 @@ async function editMemo(id) {
       <option value="업무" ${cat === '업무' ? 'selected' : ''}>💼 업무 메모</option>
     </select>
     <label>내용</label>
-    <textarea id="memoEdit" rows="6">${esc(m.content)}</textarea>
+    <textarea id="memoEdit" rows="6">${esc(content)}</textarea>
+    <label class="pick" style="margin-top:10px"><input type="checkbox" id="memoEditLocked" ${isLockedMemo(m) ? 'checked' : ''}> 🔒 암호화하여 잠그기</label>
+    <p class="muted" style="margin:6px 0 0">잠금을 선택하면 저장할 때 비밀번호를 설정합니다.</p>
     <div class="foot">
       <button class="btn ghost" onclick="closeModal()">취소</button>
       <button class="btn" onclick="saveMemo('${id}')">저장</button>
@@ -1406,12 +1687,20 @@ async function editMemo(id) {
 }
 async function saveMemo(id) {
   const m = state.memos.find(x => x.id === id); if (!m) return;
-  const content = document.getElementById('memoEdit').value.trim();
+  const plain = document.getElementById('memoEdit').value.trim();
   const category = document.getElementById('memoEditCat').value;
+  const shouldLock = document.getElementById('memoEditLocked').checked;
+  let content = plain;
+  if (shouldLock) {
+    const pw = await requestMemoPassword(true); if (!pw) return;
+    try { content = await encryptMemoContent(plain, pw); } catch (e) { return toast(e.message); }
+  }
   const upd = { content, category, updated_at: new Date().toISOString() };
   const { error } = await sb.from('memos').update(upd).eq('id', id);
   if (error) return toast('저장 실패: ' + error.message);
-  Object.assign(m, upd); closeModal(); renderMemos();
+  Object.assign(m, upd);
+  shouldLock ? unlockedMemoContent.set(id, plain) : unlockedMemoContent.delete(id);
+  closeModal(); renderMemos();
 }
 async function pinMemo(id) {
   const m = state.memos.find(x => x.id === id); if (!m) return;
@@ -1437,7 +1726,7 @@ function meetingCard(m) {
   div.className = 'meet-item';
   const linkedCount = (m.task_ids || []).length;
   div.innerHTML = `
-    <h4>${mBadge(m)} ${esc(m.title)} ${m.kind === '미팅' ? '<span class="chip ev-미팅">미팅</span>' : ''}</h4>
+    <h4>🎙️ ${esc(m.title)}</h4>
     <div class="meta">
       <span>📅 ${fmtKo(m.date)}${m.time ? ' ' + esc(m.time) : ''}</span>
       ${m.audio_path ? '<span>🔊 녹음 있음</span>' : ''}
@@ -1447,7 +1736,6 @@ function meetingCard(m) {
   return div;
 }
 let mediaRecorder = null, recChunks = [], recBlob = null, recTimer = null, recSec = 0;
-// 회의/미팅 아이콘 헬퍼
 function mBadge(m) { return (m && m.kind === '미팅') ? '🤝' : '🎙️'; }
 function openMeetingModal(id, presetDate, presetKind) {
   const m = id ? state.meetings.find(x => x.id === id) : null;
@@ -1468,18 +1756,18 @@ function openMeetingModal(id, presetDate, presetKind) {
       <option value="회의" ${kind === '회의' ? 'selected' : ''}>🎙️ 회의 (내부)</option>
       <option value="미팅" ${kind === '미팅' ? 'selected' : ''}>🤝 미팅 (외부·약속)</option>
     </select>
-    <label>제목</label><input id="mtTitle" value="${m ? esc(m.title) : ''}" placeholder="${kind === '미팅' ? '예: ○○업체 미팅, 거래처 방문' : '예: 주간 마케팅 회의'}">
+    <label>제목</label><input id="mtTitle" value="${m ? esc(m.title) : ''}" placeholder="예: 주간 마케팅 회의">
     <label>날짜</label><input id="mtDate" type="date" value="${m ? m.date : (presetDate || todayStr())}">
     <label>시간 (선택)</label><input id="mtTime" type="time" value="${m ? (m.time || '') : ''}">
-    <label>녹음 (선택)</label>
+    <label>회의 녹음</label>
     <div class="rec-controls" id="recBox">
       <button class="btn danger sm" id="recBtn" onclick="toggleRec()">● 녹음 시작</button>
       <span id="recTime" class="muted"></span>
     </div>
     <div id="audioBox">${m && m.audio_path ? '<div class="muted">녹음 불러오는 중…</div>' : ''}</div>
-    <label>내용 · 메모</label>
-    <textarea id="mtContent" rows="6" placeholder="${kind === '미팅' ? '장소, 참석자, 논의할 내용…' : '논의 사항, 결정 사항, 다음 단계…'}">${m ? esc(m.content || '') : ''}</textarea>
-    <label>연결된 업무 (관련된 일 체크)</label>
+    <label>회의 내용</label>
+    <textarea id="mtContent" rows="6" placeholder="논의 사항, 결정 사항, 다음 단계…">${m ? esc(m.content || '') : ''}</textarea>
+    <label>연결된 업무 (이 회의와 관련된 일 체크)</label>
     <div class="task-pick" id="mtPick">${pickHtml}</div>
     <div class="foot">
       ${m ? `<button class="btn danger left" onclick="delMeeting('${m.id}')">삭제</button>` : ''}
@@ -1531,7 +1819,7 @@ function stopRecCleanup() {
 function fmtSec(s) { return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
 async function saveMeeting(id) {
   const title = document.getElementById('mtTitle').value.trim();
-  if (!title) return toast('제목을 입력하세요.');
+  if (!title) return toast('회의 제목을 입력하세요.');
   const date = document.getElementById('mtDate').value || todayStr();
   const content = document.getElementById('mtContent').value.trim();
   const task_ids = [...document.querySelectorAll('#mtPick input:checked')].map(c => c.dataset.tid);
@@ -1551,7 +1839,6 @@ async function saveMeeting(id) {
   let error, data;
   if (id) ({ error } = await sb.from('meetings').update(row).eq('id', id));
   else ({ data, error } = await sb.from('meetings').insert(row).select().single());
-  // kind 컬럼 미반영 DB 호환
   if (error && /kind/i.test(error.message)) {
     delete row.kind;
     if (id) ({ error } = await sb.from('meetings').update(row).eq('id', id));
@@ -1560,7 +1847,49 @@ async function saveMeeting(id) {
   if (error) return toast('저장 실패: ' + error.message);
   if (id) Object.assign(state.meetings.find(x => x.id === id), row);
   else state.meetings.unshift(data);
-  recBlob = null; closeModal(); renderAll(); toast(kindVal === '미팅' ? '미팅이 저장됐어요.' : '회의록이 저장됐어요.');
+  recBlob = null; closeModal(); renderAll(); toast('회의록이 저장됐어요.');
+}
+/* ===== 개인 일정 (본인 전용) ===== */
+function openPersonalEventModal(id, presetDate) {
+  const e = id ? state.personalEvents.find(x => x.id === id) : null;
+  openModal(`
+    <h3>${e ? '개인 일정 수정' : '새 개인 일정'} <span class="chip" style="background:#ffe9f2;color:#b13b6d">🌷 나만 보기</span></h3>
+    <label>제목</label><input id="peTitle" value="${e ? esc(e.title) : ''}" placeholder="예: 병원 예약, 가족 모임">
+    <label>날짜</label><input id="peDate" type="date" value="${e ? e.date : (presetDate || todayStr())}">
+    <div class="row">
+      <div style="flex:1;min-width:130px"><label>시작 시간 (선택)</label><input id="peStart" type="time" value="${e ? (e.start_time || '') : ''}"></div>
+      <div style="flex:1;min-width:130px"><label>종료 시간 (선택)</label><input id="peEnd" type="time" value="${e ? (e.end_time || '') : ''}"></div>
+    </div>
+    <label>장소 (선택)</label><input id="peLocation" value="${e ? esc(e.location || '') : ''}" placeholder="예: 부산진구 보건소">
+    <label>메모 (선택)</label><textarea id="peNote" rows="3" placeholder="준비물, 연락처 등">${e ? esc(e.note || '') : ''}</textarea>
+    <div class="foot">
+      ${e ? `<button class="btn danger left" onclick="delPersonalEvent('${e.id}')">삭제</button>` : ''}
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" onclick="savePersonalEvent(${e ? `'${e.id}'` : 'null'})">저장</button>
+    </div>`);
+}
+async function savePersonalEvent(id) {
+  const title = document.getElementById('peTitle').value.trim();
+  if (!title) return toast('제목을 입력하세요.');
+  const start_time = document.getElementById('peStart').value || null;
+  const end_time = document.getElementById('peEnd').value || null;
+  if (start_time && end_time && end_time < start_time) return toast('종료 시간은 시작 시간 이후로 설정하세요.');
+  const row = { user_id: user.id, title, date: document.getElementById('peDate').value || todayStr(), start_time, end_time,
+    location: document.getElementById('peLocation').value.trim() || null, note: document.getElementById('peNote').value.trim() || null,
+    updated_at: new Date().toISOString() };
+  let error, data;
+  if (id) ({ error } = await sb.from('personal_events').update(row).eq('id', id));
+  else ({ data, error } = await sb.from('personal_events').insert(row).select().single());
+  if (error) return toast(error.code === '42P01' ? 'Supabase에서 개인일정 추가 SQL을 먼저 실행하세요.' : '저장 실패: ' + error.message);
+  if (id) Object.assign(state.personalEvents.find(x => x.id === id), row); else state.personalEvents.push(data);
+  closeModal(); renderAll(); toast('개인 일정을 저장했어요.');
+}
+async function delPersonalEvent(id) {
+  if (!confirm('이 개인 일정을 삭제할까요?')) return;
+  const { error } = await sb.from('personal_events').delete().eq('id', id);
+  if (error) return toast('삭제 실패: ' + error.message);
+  state.personalEvents = state.personalEvents.filter(x => x.id !== id);
+  closeModal(); renderAll(); toast('삭제했어요.');
 }
 /* ===== 공동 일정 (팀 공유) ===== */
 function openSharedEventModal(id, presetDate) {
@@ -1629,8 +1958,8 @@ function openRoutineModal() {
         <span style="${r.active ? '' : 'color:var(--sub);text-decoration:line-through'}">🔁 ${esc(r.title)}</span>
       </label>
       ${repBadge(r)}
-      ${priChip(r.priority)}
-      ${(r.repeat_every && r.repeat_every !== '매일') ? `<button class="icon-btn" onclick="toggleRoutineCal('${r.id}')" title="월간 캘린더 표시 켜기/끄기">${r.show_on_calendar !== false ? '📅' : '🚫'}</button>` : ''}
+      ${(r.repeat_every && r.repeat_every !== '매일') ? `<button class="btn sm ${r.show_on_calendar !== false ? 'soft' : 'ghost'}" onclick="toggleRoutineCal('${r.id}')" title="월간 캘린더 표시 켜기/끄기">${r.show_on_calendar !== false ? '📅 월간 표시' : '월간 숨김'}</button>` : ''}
+      <button class="icon-btn" onclick="openRoutineEditModal('${r.id}')" title="고정 업무 수정">✏️</button>
       <button class="icon-btn" onclick="delRoutine('${r.id}')">✕</button>
     </div>`).join('') || '<div class="muted">고정 업무가 없어요.</div>';
   openModal(`
@@ -1639,7 +1968,6 @@ function openRoutineModal() {
     <label>새 고정 업무</label>
     <div class="row">
       <input type="text" id="rtTitle" placeholder="예: 메일 확인, 월간 보고" style="flex:1;min-width:150px" onkeydown="if(event.key==='Enter')addRoutine()">
-      <select id="rtPri" style="width:auto"><option value="높음">🔴 높음</option><option value="중간" selected>🟡 중간</option><option value="낮음">🟢 낮음</option></select>
     </div>
     <div class="row" style="margin-top:8px">
       <select id="rtRep" style="width:auto" onchange="document.getElementById('rtAnchorWrap').style.display=this.value==='매일'?'none':'flex'">
@@ -1665,7 +1993,7 @@ function openRoutineModal() {
 async function addRoutine() {
   const title = document.getElementById('rtTitle').value.trim();
   if (!title) return toast('업무명을 입력하세요.');
-  const priority = document.getElementById('rtPri').value;
+  const priority = '중간';
   const repeat_every = document.getElementById('rtRep').value;
   const anchor_date = repeat_every === '매일' ? null : (document.getElementById('rtAnchor').value || todayStr());
   const show_on_calendar = (document.getElementById('rtCal') || {}).checked !== false;
@@ -1675,6 +2003,50 @@ async function addRoutine() {
   state.routines.push(data);
   await ensureRoutineTasks();
   openRoutineModal(); renderAll();
+}
+function openRoutineEditModal(id) {
+  const r = state.routines.find(x => x.id === id); if (!r) return;
+  const rep = r.repeat_every || '매일';
+  const opt = (value, label) => `<option value="${value}" ${rep === value ? 'selected' : ''}>${label}</option>`;
+  openModal(`
+    <h3>✏️ 고정 업무 수정</h3>
+    <label>업무명</label>
+    <input type="text" id="ertTitle" value="${esc(r.title)}" onkeydown="if(event.key==='Enter')saveRoutineEdit('${r.id}')">
+    <label>반복 주기</label>
+    <select id="ertRep" onchange="document.getElementById('ertAnchorWrap').style.display=this.value==='매일'?'none':'block'">
+      ${opt('매일', '매일 (근무일마다)')}${opt('매주', '매주')}${opt('2주마다', '2주마다')}${opt('매월', '매월')}${opt('분기별', '분기별 (3개월마다)')}${opt('매년', '매년')}
+    </select>
+    <div id="ertAnchorWrap" style="display:${rep === '매일' ? 'none' : 'block'}">
+      <label>시작일(기준)</label>
+      <input type="date" id="ertAnchor" value="${r.anchor_date || todayStr()}">
+    </div>
+    <label class="pick" style="margin-top:12px"><input type="checkbox" id="ertCal" ${r.show_on_calendar !== false ? 'checked' : ''}> 📅 월간 캘린더에 표시</label>
+    <p class="muted" style="margin:8px 0 0">수정 내용은 앞으로 생성될 고정 업무부터 적용됩니다.</p>
+    <div class="foot">
+      <button class="btn ghost" onclick="openRoutineModal()">취소</button>
+      <button class="btn" onclick="saveRoutineEdit('${r.id}')">저장</button>
+    </div>`);
+  setTimeout(() => document.getElementById('ertTitle')?.focus(), 0);
+}
+async function saveRoutineEdit(id) {
+  const r = state.routines.find(x => x.id === id); if (!r) return;
+  const title = document.getElementById('ertTitle').value.trim();
+  if (!title) return toast('업무명을 입력하세요.');
+  const repeat_every = document.getElementById('ertRep').value;
+  const anchor_date = repeat_every === '매일' ? null : (document.getElementById('ertAnchor').value || todayStr());
+  const scheduleChanged = repeat_every !== (r.repeat_every || '매일') || anchor_date !== (r.anchor_date || null);
+  const row = {
+    title,
+    repeat_every,
+    anchor_date,
+    show_on_calendar: document.getElementById('ertCal').checked,
+  };
+  if (scheduleChanged) row.last_generated = null;
+  const { error } = await sb.from('routines').update(row).eq('id', id);
+  if (error) return toast('수정 실패: ' + error.message);
+  Object.assign(r, row);
+  if (r.active && scheduleChanged) await ensureRoutineTasks();
+  openRoutineModal(); renderAll(); toast('고정 업무를 수정했어요.');
 }
 async function toggleRoutine(id) {
   const r = state.routines.find(x => x.id === id); if (!r) return;
@@ -1707,22 +2079,29 @@ function openOffModal() {
     `<button class="${state.weeklyOff.includes(i) ? 'on' : ''}" onclick="toggleWeeklyOff(${i})">${d}</button>`).join('');
   const items = state.daysOff.map(o => `
     <div class="off-item">
-      <span>🏖️ ${fmtKo(o.date)}</span><span class="lbl">${esc(o.label || '')}</span>
+      <span>${offIcon(o)} ${fmtKo(o.date)}</span><span class="lbl">${esc(offLabelText(o))}</span>
       <button class="icon-btn" onclick="delOff('${o.id}')">✕</button>
-    </div>`).join('') || '<div class="muted">등록된 휴무·연차가 없어요.</div>';
+    </div>`).join('') || '<div class="muted">등록된 일회성 휴가가 없어요.</div>';
   openModal(`
     <h3>🏖️ 휴무 · 연차 관리</h3>
     <label>매주 고정 휴무 요일 (누르면 켜짐/꺼짐)</label>
     <div class="dow-picks">${dowBtns}</div>
-    <label>연차 · 특정일 휴무 추가</label>
+    <label>일회성 휴가 등록</label>
     <div class="row">
       <input type="date" id="offDate" style="flex:1;min-width:140px">
-      <input type="text" id="offLabel" placeholder="예: 연차, 여름휴가" style="flex:1;min-width:120px">
+      <select id="offType" style="width:auto;min-width:120px">
+        <option value="연차">🏖️ 연차</option>
+        <option value="휴가">🌴 휴가</option>
+        <option value="오전 반차">🌤️ 오전 반차</option>
+        <option value="오후 반차">🌙 오후 반차</option>
+        <option value="기타 휴무">📌 기타</option>
+      </select>
+      <input type="text" id="offLabel" placeholder="사유·메모 (선택)" style="flex:1;min-width:130px" onkeydown="if(event.key==='Enter')addOff()">
       <button class="btn sm" onclick="addOff()">추가</button>
     </div>
-    <label>등록된 휴무일</label>
+    <label>등록된 일회성 휴가</label>
     <div class="off-list">${items}</div>
-    <p class="muted" style="margin-bottom:0">휴무일에는 새 업무·고정 업무가 배정되지 않고, 이월도 다음 근무일로 건너뜁니다.</p>
+    <p class="muted" style="margin-bottom:0">연차·휴가는 하루 전체 휴무로 처리되어 업무가 다음 근무일로 이동합니다. 반차는 일정만 표시되고 업무는 정상 배정됩니다.</p>
     <div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>`);
 }
 async function toggleWeeklyOff(dow) {
@@ -1738,14 +2117,16 @@ async function toggleWeeklyOff(dow) {
 }
 async function addOff() {
   const date = document.getElementById('offDate').value;
-  const label = document.getElementById('offLabel').value.trim() || '휴무';
+  const type = document.getElementById('offType').value;
+  const note = document.getElementById('offLabel').value.trim();
+  const label = `[${type}]${note ? ' ' + note : ''}`;
   if (!date) return toast('날짜를 선택하세요.');
-  if (state.daysOff.some(o => o.date === date)) return toast('이미 등록된 날짜예요.');
+  if (state.daysOff.some(o => o.date === date)) return toast('이 날짜에는 이미 등록된 휴가가 있어요.');
   const { data, error } = await sb.from('days_off')
     .insert({ user_id: user.id, date, label }).select().single();
   if (error) return toast('추가 실패: ' + error.message);
   state.daysOff.push(data); state.daysOff.sort((a, b) => a.date < b.date ? -1 : 1);
-  openOffModal(); renderAll();
+  openOffModal(); renderAll(); toast(`${type}를 등록했어요.`);
 }
 async function delOff(id) {
   const { error } = await sb.from('days_off').delete().eq('id', id);
@@ -1846,6 +2227,99 @@ async function delContact(id) {
   closeModal(); renderContacts();
 }
 
+/* ================= 사이트 공유 (팀 공유, 비밀번호 잠금) ================= */
+const SITE_TAB_PW = '286128';
+function openSiteShareTab() {
+  const pw = prompt('🔐 사이트 공유 비밀번호를 입력하세요.');
+  if (pw === null) return;                              // 취소
+  if (pw !== SITE_TAB_PW) { toast('비밀번호가 틀렸어요.'); return; }
+  switchView('sites');
+  renderSites();
+}
+function lockSites() { switchView('dash'); }             // 화면을 벗어나며 잠금(그리드 비워짐)
+function copyText(text, label) {
+  if (!navigator.clipboard) { toast('이 브라우저에서는 복사가 지원되지 않아요.'); return; }
+  navigator.clipboard.writeText(text || '').then(() => toast((label || '') + ' 복사됐어요.')).catch(() => toast('복사 실패'));
+}
+function copySite(id, field, label) {
+  const s = state.sharedSites.find(x => x.id === id); if (!s) return;
+  copyText(s[field] || '', label);
+}
+function toggleSitePw(id, btn) {
+  const el = document.getElementById('pw-' + id); if (!el) return;
+  const s = state.sharedSites.find(x => x.id === id); if (!s) return;
+  const showing = el.dataset.show === '1';
+  el.dataset.show = showing ? '0' : '1';
+  el.textContent = showing ? '••••••••' : (s.password || '');
+  if (btn) btn.textContent = showing ? '👁 보기' : '🙈 숨기기';
+}
+function renderSites() {
+  const grid = document.getElementById('sitesGrid');
+  if (!grid) return;
+  const q = (document.getElementById('siteSearch')?.value || '').trim().toLowerCase();
+  const list = state.sharedSites.filter(s =>
+    !q || [s.name, s.url, s.login_id, s.note].some(v => (v || '').toLowerCase().includes(q)));
+  grid.innerHTML = list.length ? '' : '<div class="muted">등록된 사이트가 없어요. "사이트 추가"로 시작하세요.</div>';
+  for (const s of list) {
+    const card = document.createElement('div');
+    card.className = 'contact-card';
+    card.style.cursor = 'default';
+    const href = /^https?:\/\//.test(s.url || '') ? s.url : 'https://' + (s.url || '');
+    const host = (s.url || '').replace(/^https?:\/\//, '');
+    card.innerHTML = `
+      <h4>🔐 ${esc(s.name)}</h4>
+      ${s.url ? `<div class="line">🌐 <a href="${esc(href)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${esc(host)}</a></div>` : ''}
+      ${s.login_id ? `<div class="site-field"><span class="lbl">아이디</span><span class="val">${esc(s.login_id)}</span><button class="mini-btn" onclick="copySite('${s.id}','login_id','아이디')">복사</button></div>` : ''}
+      ${s.password ? `<div class="site-field"><span class="lbl">비번</span><span class="val pw" id="pw-${s.id}" data-show="0">••••••••</span><button class="mini-btn" onclick="toggleSitePw('${s.id}', this)">👁 보기</button><button class="mini-btn" onclick="copySite('${s.id}','password','비밀번호')">복사</button></div>` : ''}
+      ${s.note ? `<div class="line" style="margin-top:6px">📝 ${esc(s.note)}</div>` : ''}
+      <div class="row" style="justify-content:flex-end;margin-top:10px">
+        <button class="btn ghost sm" onclick="openSiteModal('${s.id}')">✏️ 수정</button>
+      </div>`;
+    grid.appendChild(card);
+  }
+}
+function openSiteModal(id) {
+  const s = id ? state.sharedSites.find(x => x.id === id) : null;
+  openModal(`
+    <h3>${s ? '사이트 수정' : '사이트 추가'}</h3>
+    <label>사이트명 *</label><input id="stName" value="${s ? esc(s.name) : ''}" placeholder="예: 네이버 스마트스토어">
+    <label>URL</label><input id="stUrl" value="${s ? esc(s.url || '') : ''}" placeholder="예: smartstore.naver.com">
+    <label>아이디</label><input id="stLogin" value="${s ? esc(s.login_id || '') : ''}" placeholder="로그인 아이디">
+    <label>비밀번호</label><input id="stPw" value="${s ? esc(s.password || '') : ''}" placeholder="로그인 비밀번호">
+    <label>메모</label><textarea id="stNote" rows="2" placeholder="특이사항, OTP 안내 등">${s ? esc(s.note || '') : ''}</textarea>
+    <div class="foot">
+      ${s ? `<button class="btn danger left" onclick="delSite('${s.id}')">삭제</button>` : ''}
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" onclick="saveSite(${s ? `'${s.id}'` : 'null'})">저장</button>
+    </div>`);
+}
+async function saveSite(id) {
+  const name = document.getElementById('stName').value.trim();
+  if (!name) return toast('사이트명을 입력하세요.');
+  const row = {
+    user_id: user.id, name,
+    url: document.getElementById('stUrl').value.trim(),
+    login_id: document.getElementById('stLogin').value.trim(),
+    password: document.getElementById('stPw').value,
+    note: document.getElementById('stNote').value.trim(),
+  };
+  let error, data;
+  if (id) ({ error } = await sb.from('shared_sites').update(row).eq('id', id));
+  else ({ data, error } = await sb.from('shared_sites').insert(row).select().single());
+  if (error) return toast('저장 실패: ' + error.message);
+  if (id) Object.assign(state.sharedSites.find(x => x.id === id), row);
+  else state.sharedSites.push(data);
+  state.sharedSites.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ko'));
+  closeModal(); renderSites(); toast('사이트가 저장됐어요.');
+}
+async function delSite(id) {
+  if (!confirm('이 사이트 정보를 삭제할까요?')) return;
+  const { error } = await sb.from('shared_sites').delete().eq('id', id);
+  if (error) return toast('삭제 실패: ' + error.message);
+  state.sharedSites = state.sharedSites.filter(x => x.id !== id);
+  closeModal(); renderSites();
+}
+
 /* ================= 통합 검색 ================= */
 function doSearch() {
   const q = document.getElementById('globalSearch').value.trim().toLowerCase();
@@ -1889,7 +2363,10 @@ function openModal(html) {
   const root = document.getElementById('modalRoot');
   root.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()"><div class="modal">${html}</div></div>`;
 }
-function closeModal() { stopRecCleanup(); document.getElementById('modalRoot').innerHTML = ''; }
+function closeModal() {
+  if (memoPasswordResolve) { const resolve = memoPasswordResolve; memoPasswordResolve = null; resolve(null); }
+  stopRecCleanup(); document.getElementById('modalRoot').innerHTML = '';
+}
 let toastTimer = null;
 function toast(msg) {
   const t = document.getElementById('toast');
