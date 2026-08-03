@@ -415,7 +415,7 @@ audio{width:100%;max-width:420px;height:38px;}
     <div class="sep"></div>
     <button class="snav" onclick="openRoutineModal()"><span class="ico">🔁</span>고정 업무</button>
     <button class="snav" onclick="openOffModal()"><span class="ico">🏖️</span>휴무 관리</button>
-    <button class="snav" id="teamNav" onclick="openTeamModal()" style="display:none"><span class="ico">👥</span>팀원 관리</button>
+    <button class="snav" id="teamNav" onclick="openTeamModal()" style="display:none"><span class="ico">👥</span>팀 관리</button>
     <div class="grow"></div>
     <button class="snav" onclick="doLogout()"><span class="ico">🚪</span>로그아웃</button>
   </aside>
@@ -604,7 +604,7 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], sharedSites: [], isTeamMember: false };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], sharedSites: [], isTeamMember: false, teams: [], myTeamIds: [], isAppAdmin: false };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
@@ -774,6 +774,21 @@ async function loadAll() {
     sb.from('team_members').select('*').order('email'),
     sb.from('shared_events').select('*'),
   ]);
+  // 팀(그룹) 목록 — 구버전 DB(teams 테이블 없음)에서도 앱이 죽지 않도록 fallback
+  state.teams = [];
+  try {
+    const tq = await sb.from('teams').select('*').order('created_at');
+    if (tq.error) console.warn('팀 목록 불러오기:', tq.error.message);
+    else state.teams = tq.data || [];
+  } catch (e) { console.warn('팀 목록 불러오기 실패:', e); }
+  // 전역 관리자 여부 (팀 생성·팀원 관리 권한)
+  state.isAppAdmin = false;
+  try {
+    const aq = await sb.from('app_admins').select('email');
+    if (!aq.error && user && user.email) {
+      state.isAppAdmin = (aq.data || []).some(a => (a.email || '').toLowerCase() === user.email.toLowerCase());
+    }
+  } catch (e) { console.warn('관리자 확인 실패:', e); }
   for (const r of [t, m, mt, off, rt, ct]) {
     if (r.error) { toast('데이터 로드 오류: ' + r.error.message); console.error(r.error); }
   }
@@ -788,7 +803,11 @@ async function loadAll() {
   else state.weeklyOff = [0, 6];
   state.displayName = (st.data && st.data.display_name) || '';
   state.teamMembers = (tm && tm.data) || [];
-  state.isAdmin = !!(user && user.email && state.teamMembers.some(x => x.email === user.email && x.is_admin));
+  // 내가 속한 팀 id 목록 (여러 팀 동시 소속 가능)
+  const myMail = (user && user.email || '').toLowerCase();
+  state.myTeamIds = state.teamMembers.filter(x => (x.email || '').toLowerCase() === myMail).map(x => x.team_id).filter(Boolean);
+  // 관리자: app_admins 우선, 없으면 구버전 is_admin으로 fallback
+  state.isAdmin = state.isAppAdmin || !!(myMail && state.teamMembers.some(x => (x.email || '').toLowerCase() === myMail && x.is_admin));
   state.sharedEvents = (se && se.data) || [];
   state.personalEvents = [];
   try {
@@ -802,11 +821,17 @@ async function loadAll() {
     if (ss.error) console.warn('사이트 공유 불러오기:', ss.error.message);
     else state.sharedSites = ss.data || [];
   } catch (e) { console.warn('사이트 공유 불러오기 실패:', e); }
-  state.isTeamMember = !!(user && user.email && state.teamMembers.some(x => x.email === user.email));
+  state.isTeamMember = state.myTeamIds.length > 0;
 }
+/* 팀 이름 조회 */
+function teamName(id) { const t = state.teams.find(x => x.id === id); return t ? t.name : '팀'; }
+/* 내가 속한 팀 목록 */
+function myTeams() { return state.teams.filter(t => state.myTeamIds.includes(t.id)); }
 /* 날짜별 회의·공동일정 (시간순) */
 function meetingsOf(ymd) { return state.meetings.filter(m => m.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
-function sharedOf(ymd) { return state.sharedEvents.filter(e => e.date === ymd).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
+// 공동 일정: 내가 속한 팀의 것만 화면에 표시 (관리자는 RLS상 전체가 보이지만 달력은 내 팀만)
+function isMyTeamEvent(e) { return !e.team_id || state.myTeamIds.includes(e.team_id); }
+function sharedOf(ymd) { return state.sharedEvents.filter(e => e.date === ymd && isMyTeamEvent(e)).sort((a, b) => (a.time || '99') < (b.time || '99') ? -1 : 1); }
 function personalOf(ymd) { return state.personalEvents.filter(e => e.date === ymd).sort((a, b) => (a.start_time || '99') < (b.start_time || '99') ? -1 : 1); }
 async function rolloverTasks() {
   const target = nextWorkday(todayStr());
@@ -1013,43 +1038,125 @@ async function saveDisplayName() {
   state.displayName = name; updateLogo(); closeModal(); toast('이름을 저장했어요.');
 }
 
-/* ===== 팀원 관리 (거래처 공유, 관리자 전용) ===== */
-function openTeamModal() {
-  if (!state.isAdmin) return toast('관리자만 팀원을 관리할 수 있어요.');
-  const rows = state.teamMembers.map(m => `
-    <div class="off-item">
-      <span>👤 ${esc(m.email)}</span>
-      ${m.is_admin ? '<span class="chip routine">관리자</span>' : ''}
-      ${m.email !== user.email ? `<button class="icon-btn" onclick="removeTeamMember('${esc(m.email)}')" title="공유에서 제거">✕</button>` : ''}
-    </div>`).join('') || '<div class="muted">멤버가 없어요.</div>';
+/* ===== 팀(그룹) 관리 — 관리자 전용 ===== */
+/* 여러 팀을 만들 수 있고, 각 팀은 그 팀끼리만 공동일정·거래처를 공유합니다.
+   관리자는 본인이 속하지 않은 팀도 만들고 관리할 수 있습니다. */
+let teamModalOpenId = null; // 펼쳐놓은 팀 id
+
+function openTeamModal(expandId) {
+  if (!state.isAdmin) return toast('관리자만 팀을 관리할 수 있어요.');
+  if (expandId !== undefined) teamModalOpenId = expandId;
+  const myMail = (user && user.email || '').toLowerCase();
+
+  const teamBlock = (t) => {
+    const mems = state.teamMembers.filter(m => m.team_id === t.id)
+      .sort((a, b) => (a.email || '').localeCompare(b.email || ''));
+    const open = teamModalOpenId === t.id;
+    const iAmIn = state.myTeamIds.includes(t.id);
+    const memRows = mems.map(m => `
+      <div class="off-item">
+        <span>👤 ${esc(m.email)}</span>
+        <button class="icon-btn" onclick="removeTeamMember('${t.id}','${esc(m.email)}')" title="이 팀에서 제외">✕</button>
+      </div>`).join('') || '<div class="muted">아직 팀원이 없어요.</div>';
+    return `
+      <div class="off-item" style="flex-direction:column;align-items:stretch;gap:6px">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <span style="font-weight:600">🏷️ ${esc(t.name)}
+            <span class="muted" style="font-weight:400">· ${mems.length}명</span>
+            ${iAmIn ? '<span class="chip routine">내 팀</span>' : ''}
+          </span>
+          <span class="row" style="gap:4px">
+            <button class="btn sm ghost" onclick="openTeamModal('${open ? '' : t.id}')">${open ? '접기' : '팀원'}</button>
+            <button class="btn sm ghost" onclick="renameTeam('${t.id}')">이름</button>
+            <button class="btn sm ghost" onclick="deleteTeam('${t.id}')">삭제</button>
+          </span>
+        </div>
+        ${open ? `
+          <div class="row">
+            <input type="email" id="tmEmail_${t.id}" placeholder="예: name@gmail.com" style="flex:1;min-width:170px"
+                   onkeydown="if(event.key==='Enter')addTeamMember('${t.id}')">
+            <button class="btn sm" onclick="addTeamMember('${t.id}')">추가</button>
+          </div>
+          <div class="off-list">${memRows}</div>` : ''}
+      </div>`;
+  };
+
+  const teamsHtml = state.teams.length
+    ? state.teams.map(teamBlock).join('')
+    : '<div class="muted">아직 팀이 없어요. 아래에서 만들어 보세요.</div>';
+
   openModal(`
-    <h3>👥 팀원 관리 (거래처 공유)</h3>
-    <p class="muted" style="margin:0 0 8px">여기 등록된 사람끼리 거래처를 공유해요. 이메일을 추가하면 (가입 전이라도) 공유 대상이 됩니다. 추가·제거는 관리자만 가능해요.</p>
-    <label>팀원 이메일 추가</label>
+    <h3>👥 팀(그룹) 관리</h3>
+    <p class="muted" style="margin:0 0 8px">팀마다 <b>그 팀끼리만</b> 공동일정과 거래처를 공유해요. 내가 속하지 않은 팀도 만들 수 있고, 한 사람이 여러 팀에 동시에 들어갈 수 있어요. 가입 전 이메일을 미리 넣어둬도 됩니다.</p>
+    <label>새 팀 만들기</label>
     <div class="row">
-      <input type="email" id="tmEmail" placeholder="예: name@gmail.com" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addTeamMember()">
-      <button class="btn sm" onclick="addTeamMember()">추가</button>
+      <input id="newTeamName" placeholder="예: 총무팀" style="flex:1;min-width:170px" onkeydown="if(event.key==='Enter')createTeam()">
+      <button class="btn sm" onclick="createTeam()">만들기</button>
     </div>
-    <label>공유 멤버 (${state.teamMembers.length}명)</label>
-    <div class="off-list">${rows}</div>
+    <label>팀 목록 (${state.teams.length}개)</label>
+    <div class="off-list">${teamsHtml}</div>
     <div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>`);
 }
-async function addTeamMember() {
-  const email = (document.getElementById('tmEmail').value || '').trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('올바른 이메일을 입력하세요.');
-  if (state.teamMembers.some(m => m.email === email)) return toast('이미 추가된 이메일이에요.');
-  const { error } = await sb.from('team_members').insert({ email });
-  if (error) return toast('추가 실패: ' + error.message);
+
+async function createTeam() {
+  const el = document.getElementById('newTeamName');
+  const name = (el && el.value || '').trim();
+  if (!name) return toast('팀 이름을 입력하세요.');
+  if (state.teams.some(t => t.name === name)) return toast('같은 이름의 팀이 이미 있어요.');
+  const { data, error } = await sb.from('teams')
+    .insert({ name, created_by: user.email }).select().single();
+  if (error) return toast('팀 생성 실패: ' + error.message);
+  await loadAll(); openTeamModal(data ? data.id : undefined); renderAll();
+  toast(`'${name}' 팀을 만들었어요.`);
+}
+
+async function renameTeam(teamId) {
+  const t = state.teams.find(x => x.id === teamId);
+  if (!t) return;
+  const name = prompt('팀 이름을 입력하세요.', t.name);
+  if (name === null) return;
+  const v = name.trim();
+  if (!v) return toast('이름은 비울 수 없어요.');
+  if (v === t.name) return;
+  const { error } = await sb.from('teams').update({ name: v }).eq('id', teamId);
+  if (error) return toast('이름 변경 실패: ' + error.message);
   await loadAll(); openTeamModal(); renderAll();
+  toast('팀 이름을 바꿨어요.');
+}
+
+async function deleteTeam(teamId) {
+  const t = state.teams.find(x => x.id === teamId);
+  if (!t) return;
+  const memCnt = state.teamMembers.filter(m => m.team_id === teamId).length;
+  const evCnt = state.sharedEvents.filter(e => e.team_id === teamId).length;
+  if (!confirm(`'${t.name}' 팀을 삭제할까요?\n\n· 팀원 ${memCnt}명이 이 팀에서 빠집니다\n· 이 팀의 공동일정 ${evCnt}건이 함께 삭제됩니다\n\n(각자의 업무·메모·거래처 데이터는 삭제되지 않아요)`)) return;
+  if (!confirm('되돌릴 수 없습니다. 정말 삭제할까요?')) return;
+  const { error } = await sb.from('teams').delete().eq('id', teamId);
+  if (error) return toast('삭제 실패: ' + error.message);
+  if (teamModalOpenId === teamId) teamModalOpenId = null;
+  await loadAll(); openTeamModal(); renderAll();
+  toast('팀을 삭제했어요.');
+}
+
+async function addTeamMember(teamId) {
+  const el = document.getElementById('tmEmail_' + teamId);
+  const email = (el && el.value || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return toast('올바른 이메일을 입력하세요.');
+  if (state.teamMembers.some(m => m.team_id === teamId && (m.email || '').toLowerCase() === email))
+    return toast('이 팀에 이미 있는 이메일이에요.');
+  const { error } = await sb.from('team_members').insert({ email, team_id: teamId });
+  if (error) return toast('추가 실패: ' + error.message);
+  await loadAll(); openTeamModal(teamId); renderAll();
   toast('팀원을 추가했어요.');
 }
-async function removeTeamMember(email) {
-  if (email === user.email) return;
-  if (!confirm(email + ' 님을 거래처 공유에서 제거할까요?\n(그 사람은 더 이상 공유 거래처를 볼 수 없어요)')) return;
-  const { error } = await sb.from('team_members').delete().eq('email', email);
+
+async function removeTeamMember(teamId, email) {
+  const t = state.teams.find(x => x.id === teamId);
+  if (!confirm(`${email} 님을 '${t ? t.name : '팀'}'에서 제외할까요?\n(이 팀의 공동일정·공유 거래처를 더 이상 볼 수 없어요)`)) return;
+  const { error } = await sb.from('team_members').delete().eq('team_id', teamId).eq('email', email);
   if (error) return toast('제거 실패: ' + error.message);
-  await loadAll(); openTeamModal(); renderAll();
-  toast('제거했어요.');
+  await loadAll(); openTeamModal(teamId); renderAll();
+  toast('제외했어요.');
 }
 
 /* ================= 공통: 업무 조작 ================= */
@@ -1895,9 +2002,17 @@ async function delPersonalEvent(id) {
 function openSharedEventModal(id, presetDate) {
   if (!state.isTeamMember) return toast('팀원만 공동 일정을 등록할 수 있어요.');
   const e = id ? state.sharedEvents.find(x => x.id === id) : null;
+  const mine = myTeams();
+  // 소속 팀이 2개 이상일 때만 선택 UI 노출 (1개면 자동 지정)
+  const teamField = mine.length > 1 ? `
+    <label>공유할 팀</label>
+    <select id="seTeam">${mine.map(t =>
+      `<option value="${t.id}" ${e && e.team_id === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('')}</select>`
+    : (mine.length === 1 ? `<p class="muted" style="margin:6px 0 0">공유 대상: <b>${esc(mine[0].name)}</b> 팀</p>` : '');
   openModal(`
-    <h3>${e ? '공동 일정' : '새 공동 일정'} <span class="chip cat-p">👥 팀 공유</span></h3>
+    <h3>${e ? '공동 일정' : '새 공동 일정'} <span class="chip cat-p">👥 ${e && e.team_id ? esc(teamName(e.team_id)) : '팀'} 공유</span></h3>
     <label>제목</label><input id="seTitle" value="${e ? esc(e.title) : ''}" placeholder="예: 부서 회식, 워크샵">
+    ${teamField}
     <label>날짜</label><input id="seDate" type="date" value="${e ? e.date : (presetDate || todayStr())}">
     <label>시간 (선택)</label><input id="seTime" type="time" value="${e ? (e.time || '') : ''}">
     <label>메모 · 장소 (선택)</label><textarea id="seNote" rows="3" placeholder="장소, 준비물 등">${e ? esc(e.note || '') : ''}</textarea>
@@ -1911,12 +2026,18 @@ function openSharedEventModal(id, presetDate) {
 async function saveSharedEvent(id) {
   const title = document.getElementById('seTitle').value.trim();
   if (!title) return toast('제목을 입력하세요.');
+  const existing = id ? state.sharedEvents.find(x => x.id === id) : null;
+  const sel = document.getElementById('seTeam');
+  // 팀 결정: 선택값 > 기존 값 > 내 유일한 팀
+  const teamId = (sel && sel.value) || (existing && existing.team_id) || state.myTeamIds[0] || null;
+  if (!teamId) return toast('먼저 팀에 소속되어야 공동 일정을 등록할 수 있어요.');
   const row = {
     title,
     date: document.getElementById('seDate').value || todayStr(),
     time: document.getElementById('seTime').value || null,
     note: document.getElementById('seNote').value.trim() || null,
     created_by: user.email,
+    team_id: teamId,
   };
   let error, data;
   if (id) ({ error } = await sb.from('shared_events').update(row).eq('id', id));
@@ -1927,7 +2048,8 @@ async function saveSharedEvent(id) {
   closeModal(); renderAll(); toast('공동 일정을 저장했어요.');
 }
 async function delSharedEvent(id) {
-  if (!confirm('이 공동 일정을 삭제할까요? (팀원 모두에게서 사라집니다)')) return;
+  const ev = state.sharedEvents.find(x => x.id === id);
+  if (!confirm(`이 공동 일정을 삭제할까요?\n(${ev && ev.team_id ? teamName(ev.team_id) + ' ' : ''}팀원 모두에게서 사라집니다)`)) return;
   const { error } = await sb.from('shared_events').delete().eq('id', id);
   if (error) return toast('삭제 실패: ' + error.message);
   state.sharedEvents = state.sharedEvents.filter(x => x.id !== id);
