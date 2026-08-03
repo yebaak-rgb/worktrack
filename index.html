@@ -298,6 +298,21 @@ audio{width:100%;max-width:420px;height:38px;}
 
 /* ===== 거래처 ===== */
 .contact-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+/* ===== 자료실 ===== */
+.doc-row{display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line,#e5e7eb);border-radius:10px;background:#fff;margin-bottom:8px;}
+.doc-row:hover{border-color:#c7d2fe;}
+.doc-ico{font-size:20px;flex:none;width:26px;text-align:center;}
+.doc-main{flex:1;min-width:0;}
+.doc-name{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.doc-meta{font-size:12px;color:#6b7280;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.doc-note{font-size:12.5px;color:#4b5563;margin-top:3px;white-space:pre-wrap;}
+.doc-acts{display:flex;gap:4px;flex:none;}
+.doc-scope{font-size:11.5px;padding:2px 7px;border-radius:999px;white-space:nowrap;}
+.doc-scope.priv{background:#f3f4f6;color:#4b5563;}
+.doc-scope.team{background:#e6f7ee;color:#0f7a45;}
+.doc-empty{padding:28px 10px;text-align:center;color:#9ca3af;font-size:14px;}
+.doc-bar{height:4px;border-radius:999px;background:#e5e7eb;overflow:hidden;margin-top:8px;}
+.doc-bar>i{display:block;height:100%;background:#3b63f3;width:0;transition:width .2s;}
 .contact-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;cursor:pointer;}
 .contact-card:hover{border-color:var(--accent);}
 .contact-card h4{margin:0 0 3px;font-size:15px;}
@@ -411,6 +426,7 @@ audio{width:100%;max-width:420px;height:38px;}
     <button class="snav" data-view="month" onclick="switchView('month')"><span class="ico">📅</span>월간 캘린더</button>
     <button class="snav" data-view="meeting" onclick="switchView('meeting')"><span class="ico">🎙️</span>회의록</button>
     <button class="snav" data-view="contact" onclick="switchView('contact')"><span class="ico">📇</span>거래처</button>
+    <button class="snav" data-view="docs" onclick="switchView('docs')"><span class="ico">📁</span>자료실</button>
     <button class="snav" data-view="sites" onclick="openSiteShareTab()"><span class="ico">🔐</span>사이트 공유</button>
     <div class="sep"></div>
     <button class="snav" onclick="openRoutineModal()"><span class="ico">🔁</span>고정 업무</button>
@@ -425,7 +441,7 @@ audio{width:100%;max-width:420px;height:38px;}
     <div class="main-head">
       <span class="today-label" id="topDate"></span>
       <div class="spacer"></div>
-      <input type="search" id="globalSearch" placeholder="🔍 검색 (업무·메모·회의·거래처)"
+      <input type="search" id="globalSearch" placeholder="🔍 검색 (업무·메모·회의·거래처·자료실)"
         style="max-width:280px;padding:7px 12px;font-size:13.5px"
         onkeydown="if(event.key==='Enter')doSearch()">
     </div>
@@ -559,6 +575,22 @@ audio{width:100%;max-width:420px;height:38px;}
       <div class="contact-grid" id="contactGrid"></div>
     </section>
 
+    <!-- 자료실 -->
+    <section id="view-docs" class="hidden">
+      <div class="row" style="margin-bottom:10px">
+        <button class="btn" onclick="openDocUpload()">＋ 자료 올리기</button>
+        <input type="search" id="docSearch" placeholder="파일명·메모 검색" style="max-width:240px" oninput="renderDocs()">
+        <select id="docScopeFilter" style="width:auto;padding:9px 8px;font-size:13px" onchange="renderDocs()">
+          <option value="전체">전체 보기</option>
+          <option value="private">🔒 나만 보기</option>
+          <option value="team">👥 팀 공유</option>
+        </select>
+      </div>
+      <div class="cat-tabs" id="docCatTabs" style="margin-bottom:12px"></div>
+      <div id="docList"></div>
+      <input type="file" id="docFileInput" style="display:none" onchange="handleDocFile(this)">
+    </section>
+
     <!-- 사이트 공유 (비밀번호 잠금) -->
     <section id="view-sites" class="hidden">
       <div class="row" style="margin-bottom:6px">
@@ -604,7 +636,7 @@ const CFG_KEY = 'worktrack_cfg';
 // 이 값 덕분에 부서원·새 기기(아이패드 등)는 접속 정보 입력 없이 링크만 열면 바로 로그인 화면으로 감.
 const EMBEDDED_CFG = { url: 'https://qdyumevxeqydjniectol.supabase.co', key: 'sb_publishable_XDtpRmUxbY55VHqxcCd1YA_3zaXbW8Q' };
 let sb = null, user = null;
-let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], sharedSites: [], isTeamMember: false, teams: [], myTeamIds: [], isAppAdmin: false };
+let state = { tasks: [], memos: [], meetings: [], daysOff: [], routines: [], contacts: [], weeklyOff: [0, 6], displayName: '', teamMembers: [], isAdmin: false, sharedEvents: [], personalEvents: [], sharedSites: [], isTeamMember: false, teams: [], myTeamIds: [], isAppAdmin: false, documents: [] };
 let curDate = todayStr();
 let curWeekStart = weekStart(todayStr());
 let curMonth = todayStr().slice(0, 7);
@@ -822,6 +854,13 @@ async function loadAll() {
     else state.sharedSites = ss.data || [];
   } catch (e) { console.warn('사이트 공유 불러오기 실패:', e); }
   state.isTeamMember = state.myTeamIds.length > 0;
+  // 자료실 — 테이블 없는 구버전 DB에서도 앱이 죽지 않도록 fallback
+  state.documents = [];
+  try {
+    const dq = await sb.from('documents').select('*').order('created_at', { ascending: false });
+    if (dq.error) console.warn('자료실 불러오기:', dq.error.message);
+    else state.documents = dq.data || [];
+  } catch (e) { console.warn('자료실 불러오기 실패:', e); }
 }
 /* 팀 이름 조회 */
 function teamName(id) { const t = state.teams.find(x => x.id === id); return t ? t.name : '팀'; }
@@ -991,13 +1030,13 @@ async function ensureRoutineTasks() {
 /* ================= 뷰 전환 ================= */
 function switchView(v) {
   document.querySelectorAll('.snav[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  ['dash', 'day', 'week', 'month', 'meeting', 'contact', 'sites'].forEach(x =>
+  ['dash', 'day', 'week', 'month', 'meeting', 'contact', 'docs', 'sites'].forEach(x =>
     document.getElementById('view-' + x).classList.toggle('hidden', x !== v));
   // 사이트 공유 화면을 벗어나면 비밀번호 내용을 DOM에서 비워 잠금 유지
   if (v !== 'sites') { const sg = document.getElementById('sitesGrid'); if (sg) sg.innerHTML = ''; }
   renderAll();
 }
-function renderAll() { renderDash(); renderDay(); renderWeek(); renderMonth(); renderMemos(); renderMeetings(); renderContacts(); }
+function renderAll() { renderDash(); renderDay(); renderWeek(); renderMonth(); renderMemos(); renderMeetings(); renderContacts(); renderDocs(); }
 function toggleMemoPanel() {
   const panel = document.getElementById('memoPanel');
   panel.classList.toggle('open');
@@ -2349,6 +2388,251 @@ async function delContact(id) {
   closeModal(); renderContacts();
 }
 
+/* ================= 자료실 ================= */
+/* 파일마다 공개 범위: 🔒 나만 보기(private) / 👥 팀 공유(team + team_id)
+   수정·삭제는 올린 사람 또는 관리자만 (RLS로도 강제됨) */
+const DOC_CATEGORIES = ['양식', '공문', '교육자료', '보고서', '사진·이미지', '기타'];
+const DOC_MAX_BYTES = 50 * 1024 * 1024; // Supabase 무료 플랜 파일당 한도
+let docCatFilter = '전체';
+
+function fmtBytes(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
+}
+function docIcon(name, mime) {
+  const e = (name.split('.').pop() || '').toLowerCase();
+  if (['doc', 'docx', 'hwp', 'hwpx', 'odt'].includes(e)) return '📄';
+  if (['xls', 'xlsx', 'csv'].includes(e)) return '📊';
+  if (['ppt', 'pptx'].includes(e)) return '📽️';
+  if (e === 'pdf') return '📕';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'].includes(e)) return '🖼️';
+  if (['zip', 'rar', '7z'].includes(e)) return '🗜️';
+  if (['mp3', 'wav', 'm4a'].includes(e)) return '🎵';
+  if (['mp4', 'mov', 'avi'].includes(e)) return '🎬';
+  if ((mime || '').startsWith('image/')) return '🖼️';
+  return '📎';
+}
+function canEditDoc(d) { return state.isAppAdmin || (user && d.user_id === user.id); }
+
+/* ----- 목록 ----- */
+function renderDocs() {
+  const wrap = document.getElementById('docList');
+  if (!wrap) return;
+  const tabs = document.getElementById('docCatTabs');
+  const q = ((document.getElementById('docSearch') || {}).value || '').trim().toLowerCase();
+  const scope = ((document.getElementById('docScopeFilter') || {}).value) || '전체';
+
+  // 카테고리 탭 (실제 자료가 있는 것만 + 전체)
+  if (tabs) {
+    const counts = {};
+    state.documents.forEach(d => { counts[d.category] = (counts[d.category] || 0) + 1; });
+    const cats = ['전체'].concat(DOC_CATEGORIES.filter(c => counts[c]));
+    if (!cats.includes(docCatFilter)) docCatFilter = '전체';
+    tabs.innerHTML = cats.map(c =>
+      `<button class="${c === docCatFilter ? 'on' : ''}" onclick="setDocCat('${esc(c)}')">${esc(c)}${c === '전체' ? ` (${state.documents.length})` : ` (${counts[c]})`}</button>`
+    ).join('');
+  }
+
+  let list = state.documents.slice();
+  if (docCatFilter !== '전체') list = list.filter(d => d.category === docCatFilter);
+  if (scope !== '전체') list = list.filter(d => d.visibility === scope);
+  if (q) list = list.filter(d =>
+    (d.name || '').toLowerCase().includes(q) || (d.note || '').toLowerCase().includes(q));
+
+  if (!list.length) {
+    wrap.innerHTML = `<div class="doc-empty">${state.documents.length ? '조건에 맞는 자료가 없어요.' : '아직 올린 자료가 없어요.<br>＋ 자료 올리기 버튼으로 시작해 보세요.'}</div>`;
+    return;
+  }
+  wrap.innerHTML = list.map(d => {
+    const mine = canEditDoc(d);
+    const scopeChip = d.visibility === 'team'
+      ? `<span class="doc-scope team">👥 ${esc(teamName(d.team_id))}</span>`
+      : '<span class="doc-scope priv">🔒 나만 보기</span>';
+    const who = d.created_by && (!user || d.created_by !== user.email) ? ` · ${esc(d.created_by)}` : '';
+    return `
+    <div class="doc-row">
+      <span class="doc-ico">${docIcon(d.name, d.mime)}</span>
+      <div class="doc-main">
+        <div class="doc-name">${esc(d.name)}</div>
+        <div class="doc-meta">${scopeChip} · ${esc(d.category)} · ${fmtBytes(d.size)} · ${esc((d.created_at || '').slice(0, 10))}${who}</div>
+        ${d.note ? `<div class="doc-note">${esc(d.note)}</div>` : ''}
+      </div>
+      <div class="doc-acts">
+        <button class="btn sm ghost" onclick="downloadDoc('${d.id}')" title="다운로드">⬇️</button>
+        ${mine ? `<button class="btn sm ghost" onclick="openDocEdit('${d.id}')" title="정보 수정">✏️</button>` : ''}
+        ${mine ? `<button class="btn sm ghost" onclick="delDoc('${d.id}')" title="삭제">✕</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function setDocCat(c) { docCatFilter = c; renderDocs(); }
+
+/* ----- 업로드 ----- */
+function openDocUpload() {
+  const inp = document.getElementById('docFileInput');
+  if (!inp) return;
+  inp.value = '';
+  inp.click();
+}
+async function handleDocFile(inp) {
+  const file = inp.files && inp.files[0];
+  if (!file) return;
+  if (file.size > DOC_MAX_BYTES) {
+    toast(`파일이 너무 커요 (${fmtBytes(file.size)}). 최대 50MB까지 올릴 수 있어요.`);
+    inp.value = ''; return;
+  }
+  openDocMetaModal(file);
+}
+function docScopeField(selectedVis, selectedTeam) {
+  const mine = myTeams();
+  const teamOpts = mine.map(t =>
+    `<option value="${t.id}" ${selectedTeam === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
+  return `
+    <label>공개 범위</label>
+    <select id="docVis" onchange="onDocVisChange()">
+      <option value="private" ${selectedVis !== 'team' ? 'selected' : ''}>🔒 나만 보기</option>
+      ${mine.length ? `<option value="team" ${selectedVis === 'team' ? 'selected' : ''}>👥 팀 공유</option>` : ''}
+    </select>
+    <div id="docTeamWrap" style="display:${selectedVis === 'team' ? '' : 'none'}">
+      <label>공유할 팀</label>
+      <select id="docTeam">${teamOpts}</select>
+    </div>
+    ${mine.length ? '' : '<p class="muted" style="margin:6px 0 0">팀에 소속되면 팀 공유를 쓸 수 있어요.</p>'}`;
+}
+function onDocVisChange() {
+  const v = document.getElementById('docVis').value;
+  const w = document.getElementById('docTeamWrap');
+  if (w) w.style.display = v === 'team' ? '' : 'none';
+}
+let pendingDocFile = null;
+function openDocMetaModal(file) {
+  pendingDocFile = file;
+  openModal(`
+    <h3>📁 자료 올리기</h3>
+    <p class="muted" style="margin:0 0 8px">${esc(file.name)} · ${fmtBytes(file.size)}</p>
+    <label>표시할 이름</label>
+    <input id="docName" value="${esc(file.name)}">
+    <label>분류</label>
+    <select id="docCat">${DOC_CATEGORIES.map(c => `<option value="${c}" ${c === '기타' ? 'selected' : ''}>${c}</option>`).join('')}</select>
+    ${docScopeField('private', null)}
+    <label>설명 (선택)</label>
+    <textarea id="docNote" rows="2" placeholder="어떤 자료인지 간단히"></textarea>
+    <div class="doc-bar" id="docProgWrap" style="display:none"><i id="docProg"></i></div>
+    <div class="foot">
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" id="docUpBtn" onclick="uploadDoc()">올리기</button>
+    </div>`);
+}
+async function uploadDoc() {
+  const file = pendingDocFile;
+  if (!file) return toast('파일이 없어요.');
+  const name = (document.getElementById('docName').value || '').trim() || file.name;
+  const category = document.getElementById('docCat').value;
+  const note = (document.getElementById('docNote').value || '').trim();
+  const visibility = document.getElementById('docVis').value;
+  const teamSel = document.getElementById('docTeam');
+  const team_id = visibility === 'team' ? (teamSel && teamSel.value) || null : null;
+  if (visibility === 'team' && !team_id) return toast('공유할 팀을 선택하세요.');
+
+  const btn = document.getElementById('docUpBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '올리는 중…'; }
+  const bar = document.getElementById('docProgWrap');
+  if (bar) bar.style.display = '';
+
+  // 경로: <user_id>/<타임스탬프>_<안전한 파일명>  (스토리지 정책이 첫 세그먼트를 소유자로 판단)
+  const safe = file.name.replace(/[^\w.\-]+/g, '_').slice(-80);
+  const path = `${user.id}/${Date.now()}_${safe}`;
+  const up = await sb.storage.from('documents').upload(path, file, {
+    contentType: file.type || 'application/octet-stream', upsert: false
+  });
+  if (up.error) {
+    if (btn) { btn.disabled = false; btn.textContent = '올리기'; }
+    return toast('업로드 실패: ' + up.error.message);
+  }
+  const { data, error } = await sb.from('documents').insert({
+    user_id: user.id, name, path, size: file.size,
+    mime: file.type || '', category, note, visibility, team_id,
+    created_by: user.email
+  }).select().single();
+  if (error) {
+    await sb.storage.from('documents').remove([path]); // 목록 등록 실패 시 파일도 되돌림
+    if (btn) { btn.disabled = false; btn.textContent = '올리기'; }
+    return toast('저장 실패: ' + error.message);
+  }
+  state.documents.unshift(data);
+  pendingDocFile = null;
+  closeModal(); renderDocs();
+  toast('자료를 올렸어요.');
+}
+
+/* ----- 정보 수정 (공개 범위 변경 포함) ----- */
+function openDocEdit(id) {
+  const d = state.documents.find(x => x.id === id);
+  if (!d) return;
+  if (!canEditDoc(d)) return toast('올린 사람만 수정할 수 있어요.');
+  openModal(`
+    <h3>✏️ 자료 정보 수정</h3>
+    <p class="muted" style="margin:0 0 8px">${docIcon(d.name, d.mime)} ${fmtBytes(d.size)} · ${esc((d.created_at || '').slice(0, 10))}</p>
+    <label>표시할 이름</label>
+    <input id="docName" value="${esc(d.name)}">
+    <label>분류</label>
+    <select id="docCat">${DOC_CATEGORIES.map(c => `<option value="${c}" ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select>
+    ${docScopeField(d.visibility, d.team_id)}
+    <label>설명 (선택)</label>
+    <textarea id="docNote" rows="2">${esc(d.note || '')}</textarea>
+    <div class="foot">
+      <button class="btn danger left" onclick="delDoc('${d.id}')">삭제</button>
+      <button class="btn ghost" onclick="closeModal()">취소</button>
+      <button class="btn" onclick="saveDocMeta('${d.id}')">저장</button>
+    </div>`);
+}
+async function saveDocMeta(id) {
+  const d = state.documents.find(x => x.id === id);
+  if (!d) return;
+  const visibility = document.getElementById('docVis').value;
+  const teamSel = document.getElementById('docTeam');
+  const team_id = visibility === 'team' ? (teamSel && teamSel.value) || null : null;
+  if (visibility === 'team' && !team_id) return toast('공유할 팀을 선택하세요.');
+  const row = {
+    name: (document.getElementById('docName').value || '').trim() || d.name,
+    category: document.getElementById('docCat').value,
+    note: (document.getElementById('docNote').value || '').trim(),
+    visibility, team_id, updated_at: new Date().toISOString()
+  };
+  const { error } = await sb.from('documents').update(row).eq('id', id);
+  if (error) return toast('저장 실패: ' + error.message);
+  Object.assign(d, row);
+  closeModal(); renderDocs(); toast('수정했어요.');
+}
+
+/* ----- 다운로드 ----- */
+async function downloadDoc(id) {
+  const d = state.documents.find(x => x.id === id);
+  if (!d) return;
+  const { data, error } = await sb.storage.from('documents').createSignedUrl(d.path, 60, { download: d.name });
+  if (error || !data) return toast('다운로드 실패: ' + ((error && error.message) || '알 수 없는 오류'));
+  const a = document.createElement('a');
+  a.href = data.signedUrl; a.download = d.name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+/* ----- 삭제 ----- */
+async function delDoc(id) {
+  const d = state.documents.find(x => x.id === id);
+  if (!d) return;
+  if (!canEditDoc(d)) return toast('올린 사람만 삭제할 수 있어요.');
+  const where = d.visibility === 'team' ? `'${teamName(d.team_id)}' 팀원 모두에게서 사라집니다.` : '';
+  if (!confirm(`'${d.name}' 자료를 삭제할까요?\n파일도 함께 지워지고 되돌릴 수 없어요.\n${where}`)) return;
+  const rm = await sb.storage.from('documents').remove([d.path]);
+  if (rm.error) console.warn('파일 삭제:', rm.error.message);
+  const { error } = await sb.from('documents').delete().eq('id', id);
+  if (error) return toast('삭제 실패: ' + error.message);
+  state.documents = state.documents.filter(x => x.id !== id);
+  closeModal(); renderDocs(); toast('삭제했어요.');
+}
+
 /* ================= 사이트 공유 (팀 공유, 비밀번호 잠금) ================= */
 const SITE_TAB_PW = '286128';
 function openSiteShareTab() {
@@ -2451,7 +2735,8 @@ function doSearch() {
   const memos = state.memos.filter(m => hit(m.content)).slice(0, 10);
   const meetings = state.meetings.filter(m => hit(m.title) || hit(m.content)).slice(0, 10);
   const contacts = state.contacts.filter(c => [c.company, c.person, c.phone, c.email, c.note].some(hit)).slice(0, 10);
-  const total = tasks.length + memos.length + meetings.length + contacts.length;
+  const docs = state.documents.filter(d => hit(d.name) || hit(d.note)).slice(0, 10);
+  const total = tasks.length + memos.length + meetings.length + contacts.length + docs.length;
   let html = `<h3>🔍 "${esc(q)}" 검색 결과 (${total}건)</h3>`;
   if (!total) html += '<div class="muted">검색 결과가 없어요.</div>';
   if (tasks.length) {
@@ -2475,6 +2760,12 @@ function doSearch() {
       `<div class="sr-item" onclick="closeModal();openContactModal('${c.id}')">
         <span>🏢 ${esc(c.company)}${c.person ? ' · ' + esc(c.person) : ''}</span>
         <span class="m">${esc(c.phone || '')}</span></div>`).join('') + '</div>';
+  }
+  if (docs.length) {
+    html += `<div class="sr-group"><h4>📁 자료실 (${docs.length})</h4>` + docs.map(d =>
+      `<div class="sr-item" onclick="closeModal();switchView('docs');downloadDoc('${d.id}')">
+        <span>${docIcon(d.name, d.mime)} ${esc(d.name)}</span>
+        <span class="m">${d.visibility === 'team' ? '👥 ' + esc(teamName(d.team_id)) : '🔒'}</span></div>`).join('') + '</div>';
   }
   html += '<div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>';
   openModal(html);
