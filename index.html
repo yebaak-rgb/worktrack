@@ -365,6 +365,8 @@ audio{width:100%;max-width:420px;height:38px;}
   .dash-grid{grid-template-columns:1fr;}
   #memoToggle{bottom:96px;}
 }
+.radar-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.radar-head h2{margin:0;font-size:22px}.radar-head p{margin:4px 0 0;color:var(--sub);font-size:14px}.radar-frame{display:block;width:100%;height:calc(100dvh - 180px);min-height:600px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}#app.radar-wide{grid-template-columns:var(--side-w) minmax(0,1fr)}#app.radar-wide>.memo-panel{display:none}
+@media(max-width:700px){#app.radar-wide{grid-template-columns:1fr}.radar-head{align-items:flex-start}.radar-head h2{font-size:19px}.radar-frame{min-height:650px;height:calc(100dvh - 200px)}}
 </style>
 </head>
 <body>
@@ -427,6 +429,7 @@ audio{width:100%;max-width:420px;height:38px;}
     <button class="snav" data-view="meeting" onclick="switchView('meeting')"><span class="ico">🎙️</span>회의록</button>
     <button class="snav" data-view="contact" onclick="switchView('contact')"><span class="ico">📇</span>거래처</button>
     <button class="snav" data-view="docs" onclick="switchView('docs')"><span class="ico">📁</span>자료실</button>
+    <button class="snav" data-view="radar" onclick="switchView('radar')"><span class="ico">◎</span>AI 점유율</button>
     <button class="snav" data-view="sites" onclick="openSiteShareTab()"><span class="ico">🔐</span>사이트 공유</button>
     <div class="sep"></div>
     <button class="snav" onclick="openRoutineModal()"><span class="ico">🔁</span>고정 업무</button>
@@ -600,6 +603,10 @@ audio{width:100%;max-width:420px;height:38px;}
       </div>
       <p class="muted" style="margin:0 0 12px">🔐 팀원과 공유하는 사이트 로그인 정보예요. 화면을 벗어나면 자동으로 잠깁니다.</p>
       <div class="contact-grid" id="sitesGrid"></div>
+    </section>
+    <section id="view-radar" class="hidden" aria-labelledby="radarTitle">
+      <div class="radar-head"><div><h2 id="radarTitle">AI 추천 점유율</h2><p>현재 업무 계정의 조사 기록입니다. 자동 수집과 수동 입력을 함께 관리합니다.</p></div></div>
+      <iframe id="radarFrame" class="radar-frame" title="예바 AI 추천 점유율 · 원문 입력 및 조사 기록"></iframe>
     </section>
   </main>
 
@@ -793,6 +800,8 @@ async function startApp() {
   await rolloverTasks();      // 지난 미완료분을 오늘로 이월
   updateLogo();               // 사이드바에 내 표시 이름 반영
   renderAll();
+  registerWorktrackRadarTools();
+  if (location.hash === '#radar') switchView('radar');
 }
 async function loadAll() {
   const [t, m, mt, off, rt, ct, st, tm, se] = await Promise.all([
@@ -1030,10 +1039,13 @@ async function ensureRoutineTasks() {
 /* ================= 뷰 전환 ================= */
 function switchView(v) {
   document.querySelectorAll('.snav[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === v));
-  ['dash', 'day', 'week', 'month', 'meeting', 'contact', 'docs', 'sites'].forEach(x =>
+  ['dash', 'day', 'week', 'month', 'meeting', 'contact', 'docs', 'sites', 'radar'].forEach(x =>
     document.getElementById('view-' + x).classList.toggle('hidden', x !== v));
   // 사이트 공유 화면을 벗어나면 비밀번호 내용을 DOM에서 비워 잠금 유지
   if (v !== 'sites') { const sg = document.getElementById('sitesGrid'); if (sg) sg.innerHTML = ''; }
+  document.getElementById('app').classList.toggle('radar-wide', v === 'radar');
+  if (v === 'radar') { const frame = document.getElementById('radarFrame'); if (!frame.getAttribute('src')) frame.src = './radar.html'; }
+  if (v === 'radar' || location.hash === '#radar') history.replaceState(null, '', v === 'radar' ? '#radar' : location.pathname + location.search);
   renderAll();
 }
 function renderAll() { renderDash(); renderDay(); renderWeek(); renderMonth(); renderMemos(); renderMeetings(); renderContacts(); renderDocs(); }
@@ -2788,6 +2800,31 @@ function toast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
+// The embedded radar is served from this same origin and reuses the already authenticated client.
+window.getWorktrackRadarContext = () => user && sb ? {client:sb,user:{id:user.id,email:user.email}} : null;
+let radarToolsRegistered = false;
+function registerWorktrackRadarTools() {
+  const context = document.modelContext;
+  if (radarToolsRegistered || !context?.registerTool) return;
+  async function call(method,input) {
+    if (!user || !sb) throw new Error('업무 트래킹 사이트에 로그인해 주세요.');
+    const frame = document.getElementById('radarFrame');
+    switchView('radar');
+    if (!frame.contentWindow?.yebaRadarBridge) await new Promise((resolve,reject) => {
+      const timer = setTimeout(() => { frame.removeEventListener('load',loaded); reject(new Error('AI 점유율 화면을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.')); },20000);
+      function loaded() { clearTimeout(timer); if(frame.contentWindow?.yebaRadarBridge)resolve();else reject(new Error('AI 점유율 연결을 확인할 수 없습니다.')); }
+      frame.addEventListener('load',loaded,{once:true});
+    });
+    return frame.contentWindow.yebaRadarBridge[method](input);
+  }
+  const item = {type:'object',properties:{ai:{type:'string',enum:['ChatGPT','Gemini','Perplexity']},question:{type:'string',minLength:1},answer:{type:'string',minLength:1},hospitals:{type:'array',items:{type:'string'},maxItems:20},our_mention:{type:'boolean'},status:{type:'string',enum:['완료','실패']},source_url:{type:'string'}},required:['ai','question','answer','hospitals','our_mention','status'],additionalProperties:false};
+  const tools = [
+    {name:'read_yeba_share_summary',title:'예바 AI 점유율 요약',description:'현재 로그인한 업무 계정의 AI 조사 질문, 서버 저장 건수와 수집·미수집 건수를 읽습니다.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:input=>call('read',input)},
+    {name:'save_yeba_recommendation_results',title:'예바 AI 조사 결과 저장',description:'현재 로그인한 업무 계정의 Supabase 저장소에 실제 답변과 미수집 사유를 저장합니다. 같은 날짜·AI·질문은 갱신합니다.',inputSchema:{type:'object',properties:{date:{type:'string'},results:{type:'array',items:item,minItems:1,maxItems:40}},required:['date','results'],additionalProperties:false},annotations:{readOnlyHint:false,idempotentHint:true,untrustedContentHint:true},execute:input=>call('save',input)},
+    {name:'merge_yeba_radar_backup',title:'예바 AI 기존 기록 합치기',description:'기존 레이더의 실제 기록을 현재 업무 계정으로 옮깁니다. 같은 날짜·AI·질문이 이미 있으면 보존하고 누락된 기록만 추가합니다. 원문과 수동 입력 여부를 유지합니다.',inputSchema:{type:'object',properties:{records:{type:'array',minItems:1,maxItems:40,items:{type:'object',properties:{date:{type:'string'},ai:item.properties.ai,question:item.properties.question,answer:item.properties.answer,hospitals:item.properties.hospitals,ourMention:{type:'boolean'},status:item.properties.status,sourceUrl:{type:'string'},collectionMethod:{type:'string',enum:['비로그인 웹','수동 입력 · 비로그인 웹','API']}},required:['date','ai','question','answer','hospitals','ourMention','status','sourceUrl','collectionMethod'],additionalProperties:false}}},required:['records'],additionalProperties:false},annotations:{readOnlyHint:false,idempotentHint:true,untrustedContentHint:true},execute:input=>call('merge',input)}
+  ];
+  tools.forEach(tool=>{try{Promise.resolve(context.registerTool(tool)).catch(()=>{});}catch{}});radarToolsRegistered=true;
+}
 init();
 </script>
 </body>

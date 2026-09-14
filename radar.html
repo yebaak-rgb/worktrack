@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1739" />
+  <meta name="description" content="예바치과 AI 추천 점유율을 매일 조사하고 변화까지 한눈에 확인하는 내부 대시보드" />
+  <title>예바 AI 추천 레이더</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b1739'/%3E%3Cpath d='M17 15h9l6 12 6-12h9L36 36v13h-8V36L17 15Z' fill='%236c86ff'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./radar-styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="주 메뉴">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">Y</span>
+        <span><strong>YEBA</strong><small>AI Recommendation Radar</small></span>
+      </div>
+      <nav class="nav-list">
+        <button class="nav-item is-active" data-view="overview"><span>⌁</span>오늘의 브리핑</button>
+        <button class="nav-item" data-view="run"><span>↗</span>조사 실행</button>
+        <button class="nav-item" data-view="manual"><span>＋</span>원문 직접 입력</button>
+        <button class="nav-item" data-view="history"><span>▦</span>기록 분석</button>
+        <button class="nav-item" data-view="settings"><span>⚙</span>자동화 설정</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div class="mini-status"><i></i><span>자동 조사 켜짐<small>매일 오전 9:30</small></span></div>
+        <button class="ghost-light" data-action="export">데이터 백업</button>
+      </div>
+    </aside>
+
+    <main class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="todayLabel">2026년 9월 11일 금요일</p>
+          <h1>AI 추천 점유율</h1>
+        </div>
+        <div class="top-actions">
+          <span class="sync-state" id="modeStatus"><i></i> 수집 대기</span>
+          <button class="outline" data-action="manual">원문 직접 입력</button>
+          <button class="primary" data-action="request-investigation" id="topRunButton">비로그인 조사 요청 <span>↗</span></button>
+        </div>
+      </header>
+      <div class="storage-notice" id="storageNotice" data-state="loading" role="status"><span id="storageStatus">사이트 저장소에 연결하는 중</span><button type="button" id="retryCloud">사이트 기록 새로 불러오기</button><a href="./#radar" target="_top">업무 로그인</a></div>
+
+      <section class="view is-active" id="view-overview">
+        <div class="briefing-strip">
+          <div><span class="pulse-dot"></span><strong>오늘의 한 줄</strong></div>
+          <p id="briefingText">오늘 첫 실제 조사를 시작해 주세요.</p>
+          <button data-action="open-insight">분석 보기</button>
+        </div>
+
+        <div class="kpi-grid">
+          <article class="kpi-card kpi-primary">
+            <div class="kpi-head"><span>이번 달 추천 점유율</span><em>목표 70%</em></div>
+            <div class="kpi-value"><span id="monthShare">0.0</span><small>%</small></div>
+            <div class="delta" id="monthDelta">실제 기록이 쌓이면 비교합니다.</div>
+            <div class="meter"><i id="monthMeter" style="width:0%"></i></div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-head"><span>오늘 추천 횟수</span><em class="tag" id="todayStatusTag">대기</em></div>
+            <div class="kpi-value"><span id="todayMentions">0</span><small id="todayTotal">/ 9</small></div>
+            <p class="kpi-note" id="providerQuestionCount">3개 AI × 질문 3개</p>
+            <div class="provider-dots" id="providerProgress" aria-label="AI별 수집 진행률"></div>
+          </article>
+          <article class="kpi-card">
+            <div class="kpi-head"><span>현재 순위</span><em>전체 치과</em></div>
+            <div class="rank-row"><span class="rank" id="currentRank">–</span><div><strong>예바치과</strong><small id="rankDetail">첫 조사 후 계산됩니다.</small></div></div>
+            <div class="delta" id="rankDelta">비교할 실제 기록이 없습니다.</div>
+          </article>
+          <article class="kpi-card alert-card">
+            <div class="kpi-head"><span>주의할 변화</span><em class="tag" id="alertCount">0건</em></div>
+            <strong class="alert-title" id="alertTitle">아직 변화가 없습니다.</strong>
+            <p id="alertDescription">최소 2일 이상 수집하면 변화를 알려드려요.</p>
+            <button data-action="history">원인 응답 확인 →</button>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel trend-panel">
+            <div class="panel-head">
+              <div><p class="eyebrow">TREND</p><h2>추천 점유율 흐름</h2></div>
+              <div class="segmented" role="group" aria-label="분석 기간"><button class="is-active">30일</button><button>3개월</button></div>
+            </div>
+            <div class="trend-summary"><strong id="trendShare">0.0%</strong><span id="trendDelta"></span><small>예바치과 추천률</small></div>
+            <div class="chart" aria-label="최근 30일 점유율 그래프">
+              <div class="chart-y"><span>80%</span><span>60%</span><span>40%</span><span>20%</span></div>
+              <div class="chart-area">
+                <div class="grid-line l1"></div><div class="grid-line l2"></div><div class="grid-line l3"></div><div class="grid-line l4"></div>
+                <svg viewBox="0 0 720 210" preserveAspectRatio="none" role="img" aria-label="실제 조사 기록이 쌓이면 추천률 추이를 표시합니다">
+                  <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3157ff" stop-opacity=".24"/><stop offset="1" stop-color="#3157ff" stop-opacity="0"/></linearGradient></defs>
+                  <path class="area" id="trendArea" d="" />
+                  <path class="line" id="trendLine" d="" />
+                </svg>
+                <div class="chart-x"><span>30일 전</span><span>기록 없음</span><span>오늘</span></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel ai-panel">
+            <div class="panel-head"><div><p class="eyebrow">BY AI</p><h2>AI별 추천률</h2></div><button class="text-button" data-action="history">전체 기록 →</button></div>
+            <div class="ai-list" id="overviewAIList"></div>
+          </article>
+
+          <article class="panel competitor-panel">
+            <div class="panel-head"><div><p class="eyebrow">COMPETITORS</p><h2>함께 언급된 치과</h2></div><span class="muted">최근 30일</span></div>
+            <div class="competitor-list" id="competitorList"><p class="empty-inline">실제 기록이 쌓이면 함께 언급된 치과를 보여드립니다.</p></div>
+          </article>
+
+          <article class="panel action-panel">
+            <div class="panel-head"><div><p class="eyebrow">NEXT ACTION</p><h2>이번 주 제안</h2></div><span class="spark">✦</span></div>
+            <p id="actionSummary">첫 실제 조사 결과가 들어오면 추천 이유를 요약합니다.</p>
+            <div class="action-box"><span>콘텐츠 힌트</span><strong id="actionHint">아직 제안할 실제 데이터가 없습니다.</strong></div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-run" aria-labelledby="runTitle">
+        <div class="section-title">
+          <div><p class="eyebrow">DAILY CHECK</p><h2 id="runTitle">오늘의 조사</h2><p>3개 AI에 같은 질문을 보내 추천 결과를 비교합니다.</p></div>
+          <button class="primary" id="startRun" data-action="request-investigation">비로그인 조사 요청 <span>↗</span></button>
+        </div>
+        <p class="collection-help">지금 조사하려면 요청문을 복사해 이 사이트를 만든 Codex 대화에 보내주세요. 이 버튼만으로 조사가 시작되지는 않습니다.</p>
+        <article class="run-summary panel">
+          <div class="run-gauge"><strong id="runPercent">0%</strong><span>조사 진행률</span></div>
+          <div class="run-copy"><span class="status-pill neutral" id="runStatus">대기</span><h3 id="runHeadline">오늘 첫 조사를 시작해 주세요.</h3><p id="runDescription">비로그인 AI 웹페이지의 실제 응답을 수집합니다.</p></div>
+          <div class="run-meta"><span>자동 조사 예약</span><strong id="nextRunText">매일 오전 9:30</strong><small>내장 브라우저 · 비로그인</small></div>
+        </article>
+        <div class="run-layout">
+          <article class="panel question-panel">
+            <div class="panel-head"><div><p class="eyebrow">QUESTIONS</p><h2>조사 질문</h2></div><button class="text-button" data-action="settings">편집 →</button></div>
+            <div id="questionList" class="question-list"></div>
+          </article>
+          <article class="panel queue-panel">
+            <div class="panel-head"><div><p class="eyebrow">LIVE STATUS</p><h2>AI별 진행 현황</h2></div><span class="muted" id="runCounter">0 / 9 완료</span></div>
+            <div class="queue-list" id="queueList"></div>
+          </article>
+        </div>
+        <article class="panel response-panel">
+          <div class="panel-head"><div><p class="eyebrow">LATEST RESPONSES</p><h2>오늘 수집한 응답</h2></div><span class="muted">치과명·추천 이유 자동 추출</span></div>
+          <div class="response-grid" id="responseGrid"></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-manual" aria-labelledby="manualTitle">
+        <div class="section-title"><div><p class="eyebrow">MANUAL COLLECTION</p><h2 id="manualTitle">원문 직접 입력</h2><p>직접 조사한 답변을 붙여넣으세요. API 키 없이 사이트에 저장됩니다.</p></div></div>
+        <form id="manualForm" class="manual-form panel">
+          <fieldset id="manualFields">
+            <div class="manual-meta">
+              <label>조사 날짜<input type="date" id="manualDate" required></label>
+              <label>조사한 AI<select id="manualAI" required><option>ChatGPT</option><option>Gemini</option><option>Perplexity</option></select></label>
+              <label>수집 상태<select id="manualStatus"><option value="완료">답변 수집</option><option value="실패">미수집 사유 기록</option></select></label>
+            </div>
+            <label>조사 질문<select id="manualQuestion" required aria-describedby="manualQuestionText"></select></label>
+            <p class="manual-question-text" id="manualQuestionText"></p>
+            <div class="manual-duplicate" id="manualDuplicate" hidden><p id="manualDuplicateText"></p><label class="manual-check"><input type="checkbox" id="manualReplace">기존 기록을 지금 입력한 내용으로 갱신합니다.</label></div>
+            <label><span id="manualAnswerLabel">AI 답변 원문</span><textarea id="manualAnswer" rows="11" maxlength="60000" required placeholder="AI 화면에서 답변 전체를 복사해 여기에 붙여넣으세요." aria-describedby="manualAnswerHelp"></textarea></label>
+            <p class="manual-help" id="manualAnswerHelp">줄바꿈을 포함한 원문을 그대로 저장합니다. 병원 이름이나 설명을 추가하지 마세요. <span id="manualChars">0 / 60,000자</span></p>
+            <label>출처 URL<input type="url" id="manualSource" maxlength="3000" required placeholder="https://..." aria-describedby="manualSourceHelp"></label>
+            <p class="manual-help" id="manualSourceHelp">답변 페이지 주소를 넣어주세요. 별도 주소가 없으면 조사한 AI 사이트 주소를 넣어도 됩니다.</p>
+            <section class="manual-review" id="manualReview" aria-labelledby="manualReviewTitle">
+              <div class="panel-head"><h3 id="manualReviewTitle">집계 내용 확인</h3><button type="button" class="outline compact" id="manualDetect">치과명 다시 찾기</button></div>
+              <p class="manual-help">치과명 찾기는 보조 기능입니다. 실제로 추천한 치과만 남기고, 빠진 이름은 직접 추가하세요.</p>
+              <label>추천된 치과 (쉼표 또는 줄바꿈으로 구분)<textarea id="manualHospitals" rows="2" placeholder="추천된 치과가 없으면 비워 두세요."></textarea></label>
+              <label class="manual-check"><input type="checkbox" id="manualMention">이 답변에서 예바치과가 추천되었습니다.</label>
+            </section>
+            <label class="manual-check manual-attest"><input type="checkbox" id="manualGuest" required><span id="manualGuestText">로그아웃 상태의 새 대화에서 선택한 질문만 보내고 받은 답변입니다.</span></label>
+          </fieldset>
+          <p class="manual-feedback" id="manualFeedback" role="status" aria-live="polite" hidden></p>
+          <div class="manual-actions"><button type="submit" class="primary" id="saveManual">원문을 사이트에 저장</button><button type="button" class="outline" id="manualNext" hidden>다음 질문 입력</button></div>
+          <p class="manual-help">같은 날짜·AI·질문은 1건으로 관리합니다. 수동 입력도 추천률 집계에 반영됩니다.</p>
+        </form>
+      </section>
+
+      <section class="view" id="view-history" aria-labelledby="historyTitle">
+        <div class="section-title">
+          <div><p class="eyebrow">HISTORY</p><h2 id="historyTitle">기록 분석</h2><p>질문과 AI별로 추천률이 어떻게 달라졌는지 확인합니다.</p></div>
+          <button class="outline" data-action="export">JSON 백업</button>
+        </div>
+        <div class="filter-bar panel">
+          <label>기간<select id="historyRange"><option value="30">최근 30일</option><option value="90">최근 3개월</option><option value="all">전체</option></select></label>
+          <label>AI<select id="historyAI"><option value="all">전체 AI</option><option>ChatGPT</option><option>Gemini</option><option>Perplexity</option></select></label>
+          <label>질문<select id="historyQuestion"><option value="all">전체 질문</option></select></label>
+          <button class="text-button" id="resetFilters">필터 초기화</button>
+        </div>
+        <div class="history-kpis">
+          <article class="panel"><span>선택 기간 응답</span><strong id="filteredResponses">0</strong></article>
+          <article class="panel"><span>예바 추천률</span><strong id="filteredShare">0.0%</strong></article>
+          <article class="panel"><span>가장 강한 AI</span><strong id="bestAI">-</strong></article>
+        </div>
+        <article class="panel records-panel">
+          <div class="panel-head"><div><p class="eyebrow">RECORDS</p><h2>최근 조사 기록</h2></div><span class="muted" id="recordCount">최근 0건</span></div>
+          <div class="table-wrap"><table><thead><tr><th>날짜</th><th>AI</th><th>질문</th><th>추천 치과</th><th>예바</th><th>상태</th></tr></thead><tbody id="recordsBody"></tbody></table></div>
+        </article>
+      </section>
+
+      <section class="view" id="view-settings" aria-labelledby="settingsTitle">
+        <div class="section-title"><div><p class="eyebrow">AUTOMATION</p><h2 id="settingsTitle">자동화 설정</h2><p>한 번 설정하면 매일 아침 페이지를 열 때 조사 여부를 자동 확인합니다.</p></div><button class="primary" id="saveSettings">설정 저장</button></div>
+        <div class="settings-grid">
+          <article class="panel settings-card">
+            <div class="settings-title"><span class="setting-icon">◴</span><div><h3>아침 자동 조사</h3><p>지정 시각 이후 첫 방문에 미완료 조사를 자동 시작합니다.</p></div><label class="switch"><input type="checkbox" id="autoRun" checked><span></span></label></div>
+            <div class="field-row"><label>실행 시각<input type="time" id="scheduleTime" value="09:30"></label><label>기준 시간대<select id="timezone"><option value="Asia/Seoul">대한민국 (서울)</option></select></label></div>
+            <div class="setting-notice"><i></i><span><strong>비로그인 웹 조사 예약: 매일 오전 9:30</strong>내장 브라우저에서 수집합니다. 예약 변경은 이 대화에서 요청해 주세요. 이 페이지의 설정은 API 연결 시 첫 방문 자동 조사에 적용됩니다.</span></div>
+          </article>
+          <article class="panel settings-card">
+            <div class="settings-title"><span class="setting-icon">◎</span><div><h3>추적 대상</h3><p>이 이름과 별칭이 포함되면 예바치과로 집계합니다.</p></div></div>
+            <label class="full-field">대표 병원명<input id="targetName" value="예바치과교정과치과의원"></label>
+            <label class="full-field">별칭 (쉼표로 구분)<input id="targetAliases" value="예바, YEBA, 예바치과"></label>
+          </article>
+          <article class="panel settings-card wide">
+            <div class="settings-title"><span class="setting-icon">?</span><div><h3>조사 질문</h3><p>검색 의도가 겹치지 않도록 핵심 질문만 유지하세요.</p></div><button class="outline compact" id="addQuestion">+ 질문 추가</button></div>
+            <div id="settingsQuestions" class="editable-questions"></div>
+          </article>
+          <article class="panel settings-card wide">
+            <div class="settings-title"><span class="setting-icon">⌘</span><div><h3>API 연결 (선택 사항)</h3><p>비로그인 웹 조사에는 필요하지 않습니다. API 응답은 웹 응답과 다를 수 있습니다.</p></div><span class="status-pill neutral" id="connectionCount">0 / 3 연결</span></div>
+            <div class="api-grid">
+              <label><span><i class="ai-icon chatgpt">G</i>OpenAI</span><input type="password" id="keyOpenAI" placeholder="sk-..." autocomplete="off"></label>
+              <label><span><i class="ai-icon gemini">✦</i>Google Gemini</span><input type="password" id="keyGemini" placeholder="AIza..." autocomplete="off"></label>
+              <label><span><i class="ai-icon perplexity">P</i>Perplexity</span><input type="password" id="keyPerplexity" placeholder="pplx-..." autocomplete="off"></label>
+            </div>
+            <div class="setting-notice"><i></i><span><strong>API 별도 실행</strong>연결한 키를 설정 저장한 뒤 실행합니다. 비로그인 조사를 원하면 위의 조사 요청 버튼을 사용하세요.</span></div>
+            <button class="outline" id="startApiRun">저장된 API 키로 별도 조사</button>
+          </article>
+          <article class="panel settings-card wide backup-card">
+            <div><h3>사이트 데이터 관리</h3><p>기록과 조사 질문은 사이트에 저장됩니다. 다른 PC에서도 같은 업무 계정으로 로그인하면 같은 기록이 보입니다. API 키는 이 브라우저에만 남습니다.</p></div>
+            <div><button class="outline" data-action="export">JSON 내보내기</button><button class="outline" id="importButton">JSON 누락 기록 합치기</button><input type="file" id="importFile" accept="application/json" hidden></div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <dialog id="investigationDialog" class="investigation-dialog" aria-labelledby="investigationDialogTitle" aria-describedby="investigationDialogHelp">
+    <div class="dialog-header"><h2 id="investigationDialogTitle">비로그인 조사 요청</h2><button type="button" class="dialog-close" id="closeInvestigationDialog" aria-label="조사 요청 창 닫기">×</button></div>
+    <p id="investigationDialogHelp">아래 요청문을 복사해 <strong>이 사이트를 만든 Codex 대화</strong>에 붙여넣고 전송해 주세요.</p>
+    <p class="request-status" id="investigationRequestStatus" role="status">아직 조사가 시작되지 않았습니다.</p>
+    <label for="investigationPrompt">현재 설정한 질문으로 만든 요청문</label>
+    <textarea id="investigationPrompt" readonly rows="8"></textarea>
+    <button type="button" class="primary" id="copyInvestigationPrompt">요청문 복사</button>
+    <p class="dialog-footnote">사이트에서 Codex를 직접 실행하는 연결은 없습니다. 매일 오전 9:30 예약은 별도이며, 복사만으로 새 조사가 접수되지는 않습니다.</p>
+  </dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./radar-app.js"></script>
+</body>
+</html>
