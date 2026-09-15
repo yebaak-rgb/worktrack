@@ -1,5 +1,5 @@
 // Shares the existing worktrack session; no admin key, new login, or browser-only record store.
-import {hasRecommendationEvidence} from './radar-classification.js';
+import {hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
 const AI = new Set(['ChatGPT','Gemini','Perplexity']);
 const DEFAULT_SETTINGS = {autoRun:false,scheduleTime:'09:30',targetName:'예바치과교정과치과의원',aliases:'예바, YEBA, 예바치과',questions:[
   '부산에서 교정치과 잘하는 곳 추천해줘. 그리고 이유도 알려줘.',

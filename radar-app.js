@@ -1,5 +1,5 @@
-import {storageRequest} from './radar-storage.js';
-import {hasRecommendationEvidence} from './radar-classification.js';
+import {storageRequest} from './radar-storage.js?v=20260915-classification';
+import {hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
