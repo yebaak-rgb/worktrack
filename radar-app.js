@@ -1,4 +1,5 @@
 import {storageRequest} from './radar-storage.js';
+import {hasRecommendationEvidence} from './radar-classification.js';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
@@ -368,7 +369,8 @@ function detectManualHospitals(){
   $('#manualMention').checked=ours;
 }
 $('#manualDetect').addEventListener('click',()=>{manualClassificationEdited=false;detectManualHospitals();manualEdited=true;manualMessage('치과명을 다시 찾았습니다. 실제 추천 목록과 예바 추천 여부를 확인해 주세요.');});
-$('#manualAnswer').addEventListener('input',()=>{$('#manualChars').textContent=$('#manualAnswer').value.length.toLocaleString()+' / 60,000자';if(!manualClassificationEdited)detectManualHospitals();});
+$('#manualAnswer').addEventListener('input',()=>{$('#manualChars').textContent=$('#manualAnswer').value.length.toLocaleString()+' / 60,000자';manualClassificationEdited=false;detectManualHospitals();$('#manualGuest').checked=false;});
+$('#manualHospitals').addEventListener('input',()=>{$('#manualMention').checked=hasRecommendationEvidence($('#manualAnswer').value,$('#manualHospitals').value.split(/[,\n]/).map(x=>x.trim()).filter(Boolean),state);});
 ['manualHospitals','manualMention'].forEach(id=>$('#'+id).addEventListener('input',()=>{manualClassificationEdited=true;}));
 ['manualDate','manualAI','manualQuestion'].forEach(id=>$('#'+id).addEventListener('change',()=>{$('#manualReplace').checked=false;$('#manualQuestionText').textContent=$('#manualQuestion').value;manualDuplicate();}));
 $('#manualStatus').addEventListener('change',()=>{
