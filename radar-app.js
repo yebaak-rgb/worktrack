@@ -1,5 +1,7 @@
 import {storageRequest} from './radar-storage.js?v=20260915-classification';
 import {hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
+import {isOurRecommendation} from './radar-analytics.js?v=20260917-monthly';
+import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20260917-monthly';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
@@ -99,71 +101,34 @@ $$('[data-action="run"]').forEach(button=>button.addEventListener('click',()=>op
 $$('[data-action="request-investigation"]').forEach(button=>button.addEventListener('click',openInvestigationRequest));
 $$('[data-action="history"]').forEach(button=>button.addEventListener('click',()=>openView('history')));
 $$('[data-action="settings"]').forEach(button=>button.addEventListener('click',()=>openView('settings')));
-$$('[data-action="open-insight"]').forEach(button=>button.addEventListener('click',()=>openView(state.records.length ? 'history' : 'run')));
+$$('[data-go]').forEach(button=>button.addEventListener('click',()=>openView(button.dataset.go)));
+initializeMonthly();
 
 function completedRecords() { return state.records.filter(record => record.status === '완료' && !record.demo); }
-function countHospitals(records) {
-  const counts = new Map();
-  records.forEach(record => record.hospitals.forEach(name => counts.set(name, (counts.get(name) || 0) + 1)));
-  return [...counts.entries()].sort((a,b) => b[1] - a[1]);
-}
-function shareOf(records) { return records.length ? records.filter(record => record.ourMention).length / records.length * 100 : 0; }
 function renderOverview() {
-  const real = completedRecords();
-  const today = real.filter(record => record.date === localISO());
-  const monthKey = localISO().slice(0,7);
-  const month = real.filter(record => record.date.startsWith(monthKey));
-  const monthShare = shareOf(month);
-  const mentions = today.filter(record => record.ourMention).length;
+  const today = completedRecords().filter(r => r.date === localISO());
   const expected = providers.length * state.questions.length;
-  const unavailable = state.records.filter(record => record.date === localISO() && record.status === '실패' && !record.demo).length;
-  const allCollected = today.length >= expected;
-  $('#monthShare').textContent = monthShare.toFixed(1);
-  $('#monthMeter').style.width = `${monthShare}%`;
-  $('#todayMentions').textContent = mentions;
-  $('#todayTotal').textContent = `/ ${today.length || expected}`;
+  const unavailable = state.records.filter(r => r.date === localISO() && r.status === '실패' && !r.demo).length;
+  const allCollected = providers.every(p => state.questions.every(q => today.some(r => r.ai === p.name && r.question === q)));
+  const mentions = today.filter(r => isOurRecommendation(r,state)).length;
   $('#runCounter').textContent = `${today.length} / ${expected} 수집 · ${unavailable}건 미수집`;
-  $('#todayStatusTag').textContent = today.length ? '수집됨' : '대기';
-  $('#todayStatusTag').className = today.length ? 'tag teal' : 'tag';
-  $('#trendShare').textContent = `${monthShare.toFixed(1)}%`;
   $('#modeStatus').lastChild.textContent = allCollected ? ' 오늘 조사 완료' : today.length ? ' 일부 수집' : ' 수집 대기';
-  $('#topRunButton').childNodes[0].textContent = '비로그인 조사 요청 ';
-  $('#providerQuestionCount').textContent = `${providers.length}개 AI × 질문 ${state.questions.length}개`;
-  $('#providerProgress').innerHTML = providers.map(provider => {
-    const done = state.questions.filter(question => today.some(record => record.ai === provider.name && record.question === question)).length;
-    const percent = state.questions.length ? Math.round(done / state.questions.length * 100) : 0;
-    const label = `${provider.name} ${done}/${state.questions.length} 수집`;
-    return `<div class="provider-progress" title="${escapeHTML(label)}"><span class="provider-track" role="progressbar" aria-label="${escapeHTML(label)}" aria-valuemin="0" aria-valuemax="${state.questions.length}" aria-valuenow="${done}"><i class="${provider.cls}" style="width:${percent}%"></i></span><small>${provider.name}</small></div>`;
+  $('#providerQuestionCount').textContent = `${providers.length}개 AI × 질문 ${state.questions.length}개 · 오늘 현황은 월 필터와 별개`;
+  $('#providerProgress').innerHTML = providers.map(p => {
+    const done = state.questions.filter(q => today.some(r => r.ai === p.name && r.question === q)).length;
+    const pct = state.questions.length ? done / state.questions.length * 100 : 0;
+    const label = `${p.name} ${done}/${state.questions.length} 수집`;
+    return `<div class="provider-progress"><span class="provider-track" role="progressbar" aria-label="${escapeHTML(label)}" aria-valuemin="0" aria-valuemax="${state.questions.length}" aria-valuenow="${done}"><i class="${p.cls}" style="width:${pct}%"></i></span><small>${label}</small></div>`;
   }).join('');
-  $('#briefingText').innerHTML = today.length
-    ? `오늘 수집한 <b>${today.length}개 실제 응답</b>에서 예바치과가 <b>${mentions}회</b> 추천됐습니다.`
-    : '오늘 첫 실제 조사를 시작해 주세요.';
-  $('#monthDelta').textContent = month.length ? `이번 달 실제 응답 ${month.length}건 기준` : '실제 기록이 쌓이면 비교합니다.';
-
-  const hospitalCounts = countHospitals(month);
-  const yebaIndex = hospitalCounts.findIndex(([name]) => name.includes('예바'));
-  $('#currentRank').textContent = yebaIndex >= 0 ? String(yebaIndex + 1) : '–';
-  $('#rankDetail').textContent = yebaIndex >= 0 ? `이번 달 ${hospitalCounts[yebaIndex][1]}회 언급` : '첫 조사 후 계산됩니다.';
-  $('#rankDelta').textContent = hospitalCounts.length > 1 && yebaIndex === 0 ? `2위와 ${hospitalCounts[0][1] - hospitalCounts[1][1]}회 차이` : '비교할 실제 기록이 없습니다.';
-  $('#alertTitle').textContent = real.length ? '수집을 이어가고 있습니다.' : '아직 변화가 없습니다.';
-  $('#alertDescription').textContent = real.length ? '최소 2일 이상 쌓이면 일별 변화를 비교합니다.' : '최소 2일 이상 수집하면 변화를 알려드려요.';
-
-  $('#overviewAIList').innerHTML = providers.map(provider => {
-    const rows = month.filter(record => record.ai === provider.name);
-    const rate = shareOf(rows);
-    return `<div class="ai-row"><span class="ai-icon ${provider.cls}">${provider.icon}</span><div><div><strong>${provider.name}</strong><em>${rate.toFixed(0)}%</em></div><span class="bar"><i style="width:${rate}%"></i></span><small>${rows.filter(record => record.ourMention).length} / ${rows.length}회</small></div></div>`;
-  }).join('');
-  $('#competitorList').innerHTML = hospitalCounts.length ? hospitalCounts.slice(0,4).map(([name,count],index) => `<div><span class="medal ${index===0?'first':''}">${index+1}</span><strong>${escapeHTML(name)}</strong><div class="mini-bar"><i style="width:${hospitalCounts[0][1] ? count / hospitalCounts[0][1] * 100 : 0}%"></i></div><em>${month.length ? (count / month.length * 100).toFixed(1) : '0.0'}%</em></div>`).join('') : '<p class="empty-inline">실제 기록이 쌓이면 함께 언급된 치과를 보여드립니다.</p>';
-  $('#actionSummary').textContent = today.length ? `오늘 실제 응답 ${today.length}건을 수집했습니다. 원문을 검토해 반복되는 추천 이유를 확인하세요.` : '첫 실제 조사 결과가 들어오면 추천 이유를 요약합니다.';
-  $('#actionHint').textContent = today.length ? '기록 분석에서 AI별 응답 원문과 추천 치과를 확인해 보세요.' : '아직 제안할 실제 데이터가 없습니다.';
-
-  const percentage = expected ? Math.min(100, Math.round(today.length / expected * 100)) : 0;
-  $('#runPercent').textContent = `${percentage}%`;
+  $('#briefingText').textContent = `오늘 실제 응답 ${today.length}건 · 예바 추천 ${mentions}건 · 미수집 ${unavailable}건`;
+  const percentage = expected ? Math.min(100,Math.round(today.length/expected*100)) : 0;
+  $('#runPercent').textContent = percentage+'%';
   $('.run-gauge').style.background = `radial-gradient(circle closest-side,#fff 78%,transparent 80% 100%),conic-gradient(var(--teal) ${percentage}%,#e9edf4 0)`;
   $('#runStatus').className = allCollected ? 'status-pill success' : unavailable ? 'status-pill error' : 'status-pill neutral';
   $('#runStatus').textContent = allCollected ? '완료' : today.length ? '일부 수집' : unavailable ? '수집 제한' : '대기';
   $('#runHeadline').textContent = today.length ? `${expected}개 조사 중 ${today.length}개 응답을 수집했습니다.` : '오늘 첫 조사를 시작해 주세요.';
-  $('#runDescription').textContent = today.length || unavailable ? `실제 응답 ${today.length}건 · 미수집 ${unavailable}건. 추천률은 실제 응답만 기준으로 계산합니다.` : '비로그인 AI 웹페이지의 실제 응답을 수집합니다.';
+  $('#runDescription').textContent = `실제 응답 ${today.length}건 · 미수집 ${unavailable}건. 추천률은 실제 응답만 기준으로 계산합니다.`;
+  renderMonthly(state);
 }
 
 function renderQuestions() {

@@ -1044,7 +1044,7 @@ function switchView(v) {
   // 사이트 공유 화면을 벗어나면 비밀번호 내용을 DOM에서 비워 잠금 유지
   if (v !== 'sites') { const sg = document.getElementById('sitesGrid'); if (sg) sg.innerHTML = ''; }
   document.getElementById('app').classList.toggle('radar-wide', v === 'radar');
-  if (v === 'radar') { const frame = document.getElementById('radarFrame'); if (!frame.getAttribute('src')) frame.src = './radar.html'; }
+  if (v === 'radar') { const frame = document.getElementById('radarFrame'); if (!frame.getAttribute('src')) frame.src = './radar.html?v=20260917-monthly'; }
   if (v === 'radar' || location.hash === '#radar') history.replaceState(null, '', v === 'radar' ? '#radar' : location.pathname + location.search);
   renderAll();
 }

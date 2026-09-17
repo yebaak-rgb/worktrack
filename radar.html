@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./radar-styles.css" />
+  <link rel="stylesheet" href="./radar-monthly.css?v=20260917-monthly" />
 </head>
 <body>
   <div class="app-shell">
@@ -20,7 +21,9 @@
         <span><strong>YEBA</strong><small>AI Recommendation Radar</small></span>
       </div>
       <nav class="nav-list">
-        <button class="nav-item is-active" data-view="overview"><span>⌁</span>오늘의 브리핑</button>
+        <button class="nav-item is-active" data-view="overview"><span>⌁</span>성과 대시보드</button>
+        <button class="nav-item" data-view="ranking"><span>≡</span>월별 전체 순위</button>
+        <button class="nav-item" data-view="insights"><span>◇</span>개선 인사이트</button>
         <button class="nav-item" data-view="run"><span>↗</span>조사 실행</button>
         <button class="nav-item" data-view="manual"><span>＋</span>원문 직접 입력</button>
         <button class="nav-item" data-view="history"><span>▦</span>기록 분석</button>
@@ -46,76 +49,51 @@
       </header>
       <div class="storage-notice" id="storageNotice" data-state="loading" role="status"><span id="storageStatus">사이트 저장소에 연결하는 중</span><button type="button" id="retryCloud">사이트 기록 새로 불러오기</button><a href="./#radar" target="_top">업무 로그인</a></div>
 
+      <header class="report-header">
+        <div><p class="eyebrow">YEBA · AI VISIBILITY INTELLIGENCE</p><h1>추천 현황을 읽고,<br class="mobile-break"> 다음 행동을 정하세요.</h1><p>실제 응답으로 보는 월간 경쟁 현황과 실행 인사이트</p></div>
+        <div class="report-filter">
+          <label>분석 월<div class="month-control"><button type="button" id="previousMonth" aria-label="이전 달">‹</button><input type="month" id="reportMonth" aria-label="분석 월"><button type="button" id="nextMonth" aria-label="다음 달">›</button></div></label>
+          <label>AI<select id="reportAI"><option value="all">전체 AI</option><option>ChatGPT</option><option>Gemini</option><option>Perplexity</option></select></label>
+          <label>수집 방식<select id="reportMethod"><option value="web">비로그인 웹</option><option value="api">API</option><option value="all">전체 방식</option></select></label>
+        </div>
+      </header>
+      <div class="report-context" id="reportContext" role="status"></div>
+
       <section class="view is-active" id="view-overview">
-        <div class="briefing-strip">
-          <div><span class="pulse-dot"></span><strong>오늘의 한 줄</strong></div>
-          <p id="briefingText">오늘 첫 실제 조사를 시작해 주세요.</p>
-          <button data-action="open-insight">분석 보기</button>
+        <div class="report-kpis">
+          <article class="panel metric metric-main"><span>선택 월 예바 추천률</span><strong id="monthlyRate">—</strong><p id="monthlyRateNote"></p><small id="monthlyDelta"></small></article>
+          <article class="panel metric"><span>전체 치과 중 예바 순위</span><strong id="monthlyRank">—</strong><p id="monthlyRankNote"></p><small>공동 순위 적용 · 추천 답변 수 기준</small></article>
+          <article class="panel metric"><span>분석에 사용한 실제 응답</span><strong id="monthlySample">0<small>건</small></strong><p id="monthlySampleNote"></p><small id="monthlyCoverage"></small></article>
         </div>
-
-        <div class="kpi-grid">
-          <article class="kpi-card kpi-primary">
-            <div class="kpi-head"><span>이번 달 추천 점유율</span><em>목표 70%</em></div>
-            <div class="kpi-value"><span id="monthShare">0.0</span><small>%</small></div>
-            <div class="delta" id="monthDelta">실제 기록이 쌓이면 비교합니다.</div>
-            <div class="meter"><i id="monthMeter" style="width:0%"></i></div>
+        <div class="analytics-grid">
+          <article class="panel daily-trend">
+            <div class="panel-head"><div><p class="eyebrow">DAILY TREND</p><h2>월간 추천률 추이</h2></div><span class="chart-legend"><i></i>예바치과</span></div>
+            <div id="monthlyChart" class="monthly-chart"></div>
+            <p class="chart-note">날짜별 추천 응답 ÷ 실제 응답. 미수집일은 0%가 아닌 공백으로 표시합니다.</p>
+            <details class="chart-data"><summary>일별 수치 확인</summary><div id="dailyData" class="table-wrap"></div></details>
           </article>
-          <article class="kpi-card">
-            <div class="kpi-head"><span>오늘 추천 횟수</span><em class="tag" id="todayStatusTag">대기</em></div>
-            <div class="kpi-value"><span id="todayMentions">0</span><small id="todayTotal">/ 9</small></div>
-            <p class="kpi-note" id="providerQuestionCount">3개 AI × 질문 3개</p>
-            <div class="provider-dots" id="providerProgress" aria-label="AI별 수집 진행률"></div>
-          </article>
-          <article class="kpi-card">
-            <div class="kpi-head"><span>현재 순위</span><em>전체 치과</em></div>
-            <div class="rank-row"><span class="rank" id="currentRank">–</span><div><strong>예바치과</strong><small id="rankDetail">첫 조사 후 계산됩니다.</small></div></div>
-            <div class="delta" id="rankDelta">비교할 실제 기록이 없습니다.</div>
-          </article>
-          <article class="kpi-card alert-card">
-            <div class="kpi-head"><span>주의할 변화</span><em class="tag" id="alertCount">0건</em></div>
-            <strong class="alert-title" id="alertTitle">아직 변화가 없습니다.</strong>
-            <p id="alertDescription">최소 2일 이상 수집하면 변화를 알려드려요.</p>
-            <button data-action="history">원인 응답 확인 →</button>
-          </article>
+          <article class="panel provider-panel"><div class="panel-head"><div><p class="eyebrow">PROVIDER MIX</p><h2>어떤 AI에서 추천하나요?</h2></div></div><div id="monthlyProviders"></div><p class="chart-note">각 AI의 실제 응답이 분모입니다. 표본 수를 함께 비교하세요.</p></article>
+          <article class="panel leaders-panel"><div class="panel-head"><div><p class="eyebrow">COMPETITIVE LANDSCAPE</p><h2>함께 언급된 치과 · 상위 5곳</h2></div><button class="text-button" data-go="ranking">전체 순위 →</button></div><div id="monthlyLeaders" class="leader-list"></div></article>
+          <article class="panel focus-panel"><div><p class="eyebrow">NEXT BEST ACTION</p><h2>이번 달 먼저 확인할 일</h2></div><div id="priorityAction"></div><button class="outline" data-go="insights">근거와 개선 과제 보기 →</button></article>
         </div>
+        <article class="panel daily-status"><div><p class="eyebrow">TODAY · 필터와 별개</p><p id="briefingText"></p><span id="providerQuestionCount"></span></div><div id="providerProgress" class="provider-dots" aria-label="오늘 AI별 수집 진행률"></div><button class="outline" data-action="run">오늘 조사 보기 →</button></article>
+      </section>
 
-        <div class="dashboard-grid">
-          <article class="panel trend-panel">
-            <div class="panel-head">
-              <div><p class="eyebrow">TREND</p><h2>추천 점유율 흐름</h2></div>
-              <div class="segmented" role="group" aria-label="분석 기간"><button class="is-active">30일</button><button>3개월</button></div>
-            </div>
-            <div class="trend-summary"><strong id="trendShare">0.0%</strong><span id="trendDelta"></span><small>예바치과 추천률</small></div>
-            <div class="chart" aria-label="최근 30일 점유율 그래프">
-              <div class="chart-y"><span>80%</span><span>60%</span><span>40%</span><span>20%</span></div>
-              <div class="chart-area">
-                <div class="grid-line l1"></div><div class="grid-line l2"></div><div class="grid-line l3"></div><div class="grid-line l4"></div>
-                <svg viewBox="0 0 720 210" preserveAspectRatio="none" role="img" aria-label="실제 조사 기록이 쌓이면 추천률 추이를 표시합니다">
-                  <defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3157ff" stop-opacity=".24"/><stop offset="1" stop-color="#3157ff" stop-opacity="0"/></linearGradient></defs>
-                  <path class="area" id="trendArea" d="" />
-                  <path class="line" id="trendLine" d="" />
-                </svg>
-                <div class="chart-x"><span>30일 전</span><span>기록 없음</span><span>오늘</span></div>
-              </div>
-            </div>
-          </article>
+      <section class="view" id="view-ranking">
+        <div class="section-title"><div><p class="eyebrow">MONTHLY LEADERBOARD</p><h2>월별 전체 치과 순위</h2><p>상위 몇 곳만이 아닌, 선택한 월에 추천된 모든 치과를 확인하세요.</p></div></div>
+        <article class="panel ranking-panel">
+          <div class="panel-head"><p id="rankingSummary"></p><label class="ranking-search">치과명 검색<input type="search" id="rankingSearch" placeholder="치과 이름 또는 원래 표기"></label></div>
+          <div class="table-wrap" tabindex="0" aria-label="월별 전체 순위 표. 좁은 화면에서는 좌우로 스크롤하세요."><table class="ranking-table"><thead><tr><th scope="col">순위</th><th scope="col">치과명</th><th scope="col">추천 답변</th><th scope="col">추천률</th><th scope="col">전월 대비</th><th scope="col">ChatGPT</th><th scope="col">Gemini</th><th scope="col">Perplexity</th><th scope="col">근거</th></tr></thead><tbody id="monthlyRankingBody"></tbody></table></div>
+          <p class="chart-note">AI별 열은 추천 답변 수입니다. 전월 대비는 순위 변화와 추천률 %p 변화이며, 전월에 실제 응답이 없으면 비교하지 않습니다. 진행 중인 달은 월 누적과 전월 전체의 단순 비교입니다.</p>
+        </article>
+        <details class="panel methodology"><summary>집계 기준 · 병원 이름 통합 확인</summary><p>각 답변의 검토된 추천 치과 목록을 기준으로, 한 답변에서 같은 병원은 한 번만 셉니다. 예바의 설정된 별칭은 브랜드 단위로 통합합니다. 다른 병원은 공백과 정식 명칭의 일부 접미사만 정리하고 지점 표기는 유지합니다.</p><div id="aliasSummary"></div><p>순위는 추천 답변 수 내림차순이며 동률은 공동 순위(1, 1, 3)입니다. 추천률의 합은 100%를 넘을 수 있습니다. 이는 전체 치과 시장점유율이나 의료 서비스 평가가 아닙니다. 저장 원문과 추천 분류는 변경하지 않습니다.</p></details>
+      </section>
 
-          <article class="panel ai-panel">
-            <div class="panel-head"><div><p class="eyebrow">BY AI</p><h2>AI별 추천률</h2></div><button class="text-button" data-action="history">전체 기록 →</button></div>
-            <div class="ai-list" id="overviewAIList"></div>
-          </article>
-
-          <article class="panel competitor-panel">
-            <div class="panel-head"><div><p class="eyebrow">COMPETITORS</p><h2>함께 언급된 치과</h2></div><span class="muted">최근 30일</span></div>
-            <div class="competitor-list" id="competitorList"><p class="empty-inline">실제 기록이 쌓이면 함께 언급된 치과를 보여드립니다.</p></div>
-          </article>
-
-          <article class="panel action-panel">
-            <div class="panel-head"><div><p class="eyebrow">NEXT ACTION</p><h2>이번 주 제안</h2></div><span class="spark">✦</span></div>
-            <p id="actionSummary">첫 실제 조사 결과가 들어오면 추천 이유를 요약합니다.</p>
-            <div class="action-box"><span>콘텐츠 힌트</span><strong id="actionHint">아직 제안할 실제 데이터가 없습니다.</strong></div>
-          </article>
-        </div>
+      <section class="view" id="view-insights">
+        <div class="section-title"><div><p class="eyebrow">EVIDENCE TO ACTION</p><h2>예바치과 개선 인사이트</h2><p>관찰된 사실 → 확인할 정보 → 실행할 과제 → 다음 조사에서 검증</p></div></div>
+        <div class="insight-disclaimer">저장된 응답에 기반한 규칙형 점검 제안입니다. 홈페이지를 실사하거나 AI의 추천 원인을 확정한 진단은 아닙니다. 실제 운영과 사실을 확인한 뒤 수정하세요.</div>
+        <article class="panel question-panel"><div class="panel-head"><div><p class="eyebrow">QUESTION GAP</p><h2>질문별 추천 기회</h2></div></div><div id="questionMatrix"></div></article>
+        <div id="insightCards" class="insight-cards"></div>
       </section>
 
       <section class="view" id="view-run" aria-labelledby="runTitle">
@@ -242,6 +220,10 @@
     <p class="dialog-footnote">사이트에서 Codex를 직접 실행하는 연결은 없습니다. 매일 오전 9:30 예약은 별도이며, 복사만으로 새 조사가 접수되지는 않습니다.</p>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./radar-app.js?v=20260915-classification"></script>
+  <dialog id="evidenceDialog" class="evidence-dialog" aria-labelledby="evidenceTitle">
+    <div class="dialog-header"><h2 id="evidenceTitle">근거 응답</h2><button type="button" class="dialog-close" id="closeEvidence" aria-label="근거 응답 닫기">×</button></div>
+    <p id="evidenceNote"></p><div id="evidenceBody"></div>
+  </dialog>
+  <script type="module" src="./radar-app.js?v=20260917-monthly"></script>
 </body>
 </html>
