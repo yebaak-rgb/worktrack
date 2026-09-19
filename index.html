@@ -367,6 +367,36 @@ audio{width:100%;max-width:420px;height:38px;}
 }
 .radar-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.radar-head h2{margin:0;font-size:22px}.radar-head p{margin:4px 0 0;color:var(--sub);font-size:14px}.radar-frame{display:block;width:100%;height:calc(100dvh - 180px);min-height:600px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}#app.radar-wide{grid-template-columns:var(--side-w) minmax(0,1fr)}#app.radar-wide>.memo-panel{display:none}
 @media(max-width:700px){#app.radar-wide{grid-template-columns:1fr}.radar-head{align-items:flex-start}.radar-head h2{font-size:19px}.radar-frame{min-height:650px;height:calc(100dvh - 200px)}}
+/* ===== 아침 메일 확인 ===== */
+.gmail-card{margin-bottom:14px;overflow:hidden;}
+.gmail-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.gmail-head h3{margin:0 0 3px;}
+.gmail-head>div:first-child{flex:1;min-width:160px;}
+#gmailAccount{overflow-wrap:anywhere;}
+.gmail-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.gmail-card a.btn{text-decoration:none;display:inline-flex;align-items:center;}
+.gmail-card button:disabled{opacity:.5;cursor:wait;}
+.gmail-card button:focus-visible,.gmail-card a:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+.gmail-filters{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;}
+.gmail-filters button{border:1px solid var(--line);background:#fff;color:var(--sub);border-radius:20px;padding:6px 12px;font-size:12.5px;font-weight:600;cursor:pointer;}
+.gmail-filters button.on{background:var(--accent-soft);border-color:#cdd8ff;color:var(--accent);}
+.gmail-status{margin:12px 0 0;font-size:13px;color:var(--sub);overflow-wrap:anywhere;}
+.gmail-status.error{color:#b33a32;}
+.gmail-list{list-style:none;padding:0;margin:10px 0 0;max-height:360px;overflow:auto;}
+.gmail-list:empty{display:none;}
+.gmail-message{display:block;padding:11px 4px;border-top:1px solid var(--line);text-decoration:none;color:var(--text);}
+.gmail-message:hover{background:var(--bg);}
+.gmail-message-top{display:flex;align-items:baseline;gap:10px;font-size:12px;color:var(--sub);}
+.gmail-sender{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gmail-subject{font-size:14px;margin-top:3px;overflow-wrap:anywhere;}
+.gmail-message.unread .gmail-subject{font-weight:700;}
+.gmail-message.unread .gmail-subject:before{content:'●';color:var(--accent);font-size:8px;margin-right:6px;vertical-align:middle;}
+.gmail-snippet{font-size:12px;color:var(--sub);white-space:nowrap;text-overflow:ellipsis;overflow:hidden;margin-top:2px;}
+.gmail-foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between;margin-top:10px;}
+.gmail-setup-steps{padding-left:20px;font-size:13px;line-height:1.8;}
+.gmail-setup-steps a{color:var(--accent);}
+.gmail-setup-steps code{overflow-wrap:anywhere;}
+@media(max-width:700px){.gmail-card{padding:14px;}.gmail-actions{width:100%;}.gmail-list{max-height:300px;}}
 </style>
 </head>
 <body>
@@ -451,6 +481,25 @@ audio{width:100%;max-width:420px;height:38px;}
 
     <!-- 대시보드 -->
     <section id="view-dash">
+      <div class="card gmail-card" id="gmailCard" aria-labelledby="gmailTitle">
+        <div class="gmail-head">
+          <div><h3 id="gmailTitle">✉️ 아침 메일 확인</h3><div class="muted" id="gmailAccount">내 Gmail을 업무와 함께 확인하세요.</div></div>
+          <div class="gmail-actions">
+            <button class="btn sm" id="gmailConnect" onclick="connectGmail()">Gmail 연결</button>
+            <button class="btn ghost sm hidden" id="gmailRefresh" onclick="refreshGmail()">새로고침</button>
+            <a class="btn ghost sm" id="gmailOpen" href="https://mail.google.com/mail/" target="_blank" rel="noopener noreferrer">Gmail 열기 ↗</a>
+            <button class="btn ghost sm" onclick="openGmailSettings()" aria-label="Gmail 연결 설정">연결 설정</button>
+          </div>
+        </div>
+        <div class="gmail-filters hidden" id="gmailFilters" aria-label="메일 필터">
+          <button type="button" data-gmail-filter="unread" onclick="setGmailFilter('unread')">안 읽은 메일</button>
+          <button type="button" data-gmail-filter="today" onclick="setGmailFilter('today')">오늘 받은 메일</button>
+          <button type="button" data-gmail-filter="recent" onclick="setGmailFilter('recent')">최근 7일</button>
+        </div>
+        <p class="gmail-status" id="gmailStatus" role="status" aria-live="polite">Gmail을 연결하면 받은편지함의 제목과 미리보기를 볼 수 있어요.</p>
+        <ul class="gmail-list" id="gmailMessages" aria-label="받은 메일 목록"></ul>
+        <div class="gmail-foot"><span class="muted" id="gmailUpdated">나에게만 표시 · 메일 읽기 전용</span><button class="btn soft sm hidden" id="gmailMore" onclick="refreshGmail(true)">더 보기</button></div>
+      </div>
       <div class="dash-top">
         <div class="card">
           <div class="dash-month-head">
@@ -728,7 +777,10 @@ async function init() {
   catch (e) { localStorage.removeItem(CFG_KEY); show('setupScreen'); return; }
   // 비밀번호 재설정(복구) 링크로 들어온 경우 → 새 비밀번호 설정 화면
   const isRecovery = /type=recovery/.test(location.hash);
-  sb.auth.onAuthStateChange((event) => { if (event === 'PASSWORD_RECOVERY') show('resetScreen'); });
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') show('resetScreen');
+    if (event === 'SIGNED_OUT' || (gmail.owner && session?.user?.id !== gmail.owner)) clearGmailSession();
+  });
   if (isRecovery) { show('resetScreen'); return; }
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { show('loginScreen'); return; }
@@ -756,7 +808,7 @@ async function doSignup() {
   if (data.session) { user = data.user; await startApp(); }
   else loginMsg('가입 완료! 이메일 인증 메일을 확인한 뒤 로그인하세요.', false);
 }
-async function doLogout() { await sb.auth.signOut(); location.reload(); }
+async function doLogout() { clearGmailSession(); await sb.auth.signOut(); location.reload(); }
 async function doForgotPassword() {
   const email = document.getElementById('loginEmail').value.trim();
   if (!email) return loginMsg('먼저 이메일 칸에 본인 이메일을 입력한 뒤 눌러 주세요.', true);
@@ -794,6 +846,7 @@ function koAuthErr(m) {
 /* ================= 데이터 로드 · 이월 · 고정업무 ================= */
 async function startApp() {
   show('app');
+  initGmail();
   document.getElementById('topDate').textContent = '📅 ' + fmtKo(todayStr());
   await loadAll();
   await ensureRoutineTasks(); // 주기 도래분 생성 (지난 것 포함)
@@ -2799,6 +2852,298 @@ function toast(msg) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
+
+/* ================= Gmail · 개인 읽기 전용 ================= */
+// OAuth client IDs are public identifiers. Never put a client secret or token here.
+const GMAIL_CLIENT_ID = '935635493145-6i8drsuicqs7jebhi72j1m0sv4hqv9i3.apps.googleusercontent.com';
+const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const gmail = { owner: '', token: '', expiresAt: 0, email: '', messages: [], filter: 'unread',
+  unread: null, next: '', updatedAt: 0, loading: false, connecting: false, error: '', notice: '',
+  generation: 0, controller: null, expiryTimer: null, pollTimer: null, library: null };
+function gmailConfigKey() { return 'worktrack_gmail_client_' + (user?.id || ''); }
+function gmailClientId() {
+  try { return localStorage.getItem(gmailConfigKey()) || GMAIL_CLIENT_ID; }
+  catch { return GMAIL_CLIENT_ID; }
+}
+function gmailConnected() { return !!(gmail.token && gmail.owner === user?.id && Date.now() < gmail.expiresAt); }
+function clearGmailSession(notice = '') {
+  gmail.generation++;
+  gmail.controller?.abort();
+  clearTimeout(gmail.expiryTimer);
+  clearInterval(gmail.pollTimer);
+  Object.assign(gmail, { owner: '', token: '', expiresAt: 0, email: '', messages: [], unread: null,
+    next: '', updatedAt: 0, loading: false, connecting: false, error: '', notice,
+    controller: null, expiryTimer: null, pollTimer: null });
+  renderGmail();
+}
+function initGmail() {
+  if (gmail.owner && gmail.owner !== user?.id) clearGmailSession();
+  renderGmail();
+  if (gmailClientId()) loadGmailLibrary().catch(() => {});
+}
+function loadGmailLibrary() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  if (gmail.library) return gmail.library;
+  gmail.library = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://accounts.google.com/gsi/client';
+    script.async = true;
+    const timer = setTimeout(() => fail(), 15000);
+    function fail() {
+      clearTimeout(timer); script.remove(); gmail.library = null;
+      reject(new Error('Google 연결 화면을 불러오지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'));
+    }
+    script.onerror = fail;
+    script.onload = () => { clearTimeout(timer); if (window.google?.accounts?.oauth2) resolve(); else fail(); };
+    document.head.appendChild(script);
+  });
+  return gmail.library;
+}
+function openGmailSettings() {
+  openModal(`
+    <h3>✉️ Gmail 연결 설정</h3>
+    <p class="muted">처음 한 번 Google에 이 업무 페이지를 등록해 주세요. 연결 후 매일 메일 확인 버튼으로 시작할 수 있어요.</p>
+    <ol class="gmail-setup-steps">
+      <li><a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener noreferrer">Google Cloud에서 Gmail API 열기 ↗</a> → 프로젝트를 선택하거나 만든 뒤 <b>사용</b>을 누르세요.</li>
+      <li><a href="https://console.cloud.google.com/auth/overview" target="_blank" rel="noopener noreferrer">Google Auth Platform ↗</a>에서 앱 이름을 <b>업무 트래킹</b>으로 설정하세요. 개인 Gmail은 대상 <b>외부(External)</b>를 선택하고, 테스트 사용자에 연결할 Gmail 주소를 추가하세요.</li>
+      <li>데이터 액세스에 <code>gmail.readonly</code>를 추가하고, 클라이언트에서 <b>웹 애플리케이션</b>을 만드세요.</li>
+      <li>승인된 JavaScript 원본에 <code>https://yebaak-rgb.github.io</code>를 넣으세요. 뒤에 <code>/worktrack/</code>는 붙이지 않아요.</li>
+      <li>발급된 <b>클라이언트 ID</b>를 아래에 붙여 넣으세요.</li>
+    </ol>
+    <label for="gmailClientInput">Google OAuth 클라이언트 ID</label>
+    <input id="gmailClientInput" value="${esc(gmailClientId())}" placeholder="…apps.googleusercontent.com" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')saveGmailSettings()">
+    <p class="muted">이 브라우저의 내 업무 계정에 저장됩니다. 비밀번호·클라이언트 보안 비밀은 입력하지 마세요.</p>
+    <p class="muted">메일과 연결 토큰은 서버에 저장하지 않습니다. 페이지를 새로 열거나 연결이 만료되면 다시 확인이 필요해요. 연결 중에는 5분마다 자동 갱신합니다.</p>
+    <p id="gmailSettingsError" class="auth-msg err" role="alert"></p>
+    <div class="foot">
+      ${gmailConnected() ? '<button class="btn danger left" onclick="disconnectGmail()">연결 해제</button>' : ''}
+      <a class="btn ghost" href="https://myaccount.google.com/connections" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Google 권한 관리 ↗</a>
+      <button class="btn ghost" onclick="closeModal()">닫기</button>
+      <button class="btn" onclick="saveGmailSettings()">설정 저장</button>
+    </div>`);
+}
+function saveGmailSettings() {
+  const id = document.getElementById('gmailClientInput').value.trim();
+  if (!/^\d+-[a-z0-9-]+\.apps\.googleusercontent\.com$/i.test(id)) {
+    document.getElementById('gmailSettingsError').textContent = 'apps.googleusercontent.com으로 끝나는 웹 클라이언트 ID를 확인해 주세요.';
+    return;
+  }
+  const changed = id !== gmailClientId();
+  try { localStorage.setItem(gmailConfigKey(), id); }
+  catch { document.getElementById('gmailSettingsError').textContent = '브라우저 저장이 차단되어 있어요. 사이트 저장 공간을 허용한 뒤 다시 시도해 주세요.'; return; }
+  if (changed) clearGmailSession();
+  closeModal();
+  gmail.notice = '설정을 저장했어요. Gmail 연결 버튼을 눌러 Google 계정을 선택하세요.';
+  renderGmail();
+  loadGmailLibrary().catch(() => {});
+}
+function connectGmail() {
+  if (!user || gmail.connecting) return;
+  if (!gmailClientId()) return openGmailSettings();
+  // Open Google's popup only from a direct click, including after a slow library load.
+  if (!window.google?.accounts?.oauth2) {
+    gmail.notice = 'Google 연결을 준비하고 있어요…'; renderGmail();
+    loadGmailLibrary().then(() => {
+      gmail.notice = '준비됐어요. Gmail 연결 버튼을 한 번 더 눌러 주세요.'; renderGmail();
+    }).catch(e => { gmail.error = e.message; renderGmail(); });
+    return;
+  }
+  clearGmailSession();
+  gmail.owner = user.id;
+  gmail.connecting = true;
+  const generation = gmail.generation;
+  const owner = user.id;
+  const current = () => generation === gmail.generation && owner === user?.id;
+  const fail = message => { if (current()) { gmail.connecting = false; gmail.error = message; renderGmail(); } };
+  try {
+    const oauth = window.google.accounts.oauth2;
+    const client = oauth.initTokenClient({
+      client_id: gmailClientId(), scope: GMAIL_SCOPE, include_granted_scopes: false,
+      callback: response => {
+        if (!current()) return;
+        if (response.error || !response.access_token) return fail('Google 연결이 완료되지 않았어요. 계정과 읽기 권한을 확인하고 다시 연결해 주세요.');
+        if (!oauth.hasGrantedAllScopes(response, GMAIL_SCOPE)) return fail('메일을 표시하려면 Gmail 읽기 권한을 허용해 주세요.');
+        const lifetime = Number(response.expires_in);
+        if (!Number.isFinite(lifetime) || lifetime <= 30) return fail('연결 유효 시간을 확인하지 못했어요. 다시 연결해 주세요.');
+        gmail.token = response.access_token;
+        gmail.expiresAt = Date.now() + (lifetime - 30) * 1000;
+        gmail.connecting = false;
+        gmail.expiryTimer = setTimeout(() => clearGmailSession('Google 연결이 만료됐어요. Gmail 연결을 눌러 다시 확인하세요.'), lifetime * 1000 - 30000);
+        gmail.pollTimer = setInterval(maybeRefreshGmail, 300000);
+        refreshGmail();
+      },
+      error_callback: error => fail(error.type === 'popup_failed_to_open'
+        ? 'Google 팝업이 차단됐어요. 이 사이트의 팝업을 허용하고 다시 연결해 주세요.'
+        : 'Google 연결 창이 닫혔어요. Gmail 연결을 다시 눌러 주세요.')
+    });
+    renderGmail();
+    client.requestAccessToken({ prompt: 'select_account' });
+  } catch { fail('Google 연결을 시작하지 못했어요. 연결 설정의 클라이언트 ID와 사이트 주소를 확인해 주세요.'); }
+}
+function disconnectGmail() {
+  const token = gmail.token;
+  clearGmailSession('이 페이지의 Gmail 연결을 해제했어요.');
+  closeModal();
+  const generation = gmail.generation;
+  if (token && window.google?.accounts?.oauth2) {
+    try {
+      window.google.accounts.oauth2.revoke(token, result => {
+        if (generation !== gmail.generation) return;
+        if (!result.successful) {
+          gmail.notice = '페이지 연결은 해제됐어요. Google 권한도 지우려면 연결 설정의 Google 권한 관리를 이용하세요.';
+          renderGmail();
+        }
+      });
+    } catch {
+      gmail.notice = '페이지 연결은 해제됐어요. Google 권한은 연결 설정의 Google 권한 관리에서 확인해 주세요.';
+      renderGmail();
+    }
+  }
+}
+function gmailQuery(filter, now = new Date()) {
+  if (filter === 'today') {
+    const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+    return 'after:' + Math.floor(midnight.getTime() / 1000);
+  }
+  return filter === 'recent' ? 'newer_than:7d' : 'is:unread';
+}
+function setGmailFilter(filter) {
+  if (!['unread', 'today', 'recent'].includes(filter) || gmail.filter === filter) return;
+  gmail.filter = filter;
+  gmail.controller?.abort();
+  gmail.generation++;
+  gmail.loading = false; gmail.messages = []; gmail.next = ''; gmail.updatedAt = 0;
+  refreshGmail();
+}
+async function gmailApi(path, params, token, signal) {
+  const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/' + path);
+  for (const [key, value] of Object.entries(params || {})) {
+    for (const item of Array.isArray(value) ? value : [value]) url.searchParams.append(key, item);
+  }
+  const response = await fetch(url.href, { headers: { Authorization: 'Bearer ' + token }, signal, cache: 'no-store' });
+  const body = await response.json();
+  if (!response.ok) {
+    const error = new Error('Gmail API request failed');
+    error.status = response.status;
+    error.details = JSON.stringify(body.error || {});
+    throw error;
+  }
+  return body;
+}
+function gmailErrorMessage(error) {
+  if (error.status === 429 || /rateLimitExceeded|quotaExceeded/i.test(error.details || '')) return '메일 요청이 잠시 많아졌어요. 잠시 후 새로고침해 주세요.';
+  if (/SERVICE_DISABLED|accessNotConfigured/i.test(error.details || '')) return 'Google Cloud 프로젝트에서 Gmail API를 사용 설정한 뒤 새로고침해 주세요.';
+  if (error.status === 403) return 'Gmail 접근이 허용되지 않았어요. 연결 설정과 Google 계정의 앱 접근 정책을 확인해 주세요.';
+  return '메일을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.';
+}
+async function refreshGmail(more = false) {
+  if (gmail.loading || !user) return;
+  if (!gmailConnected()) { clearGmailSession('Gmail 연결을 눌러 메일을 확인하세요.'); return; }
+  if (more && !gmail.next) return;
+  const generation = ++gmail.generation, owner = user.id, token = gmail.token;
+  const filter = gmail.filter, pageToken = more ? gmail.next : '';
+  const current = () => generation === gmail.generation && owner === user?.id;
+  const controller = new AbortController();
+  gmail.controller = controller;
+  const timeout = setTimeout(() => controller.abort(), 25000);
+  const api = (path, params) => gmailApi(path, params, token, controller.signal);
+  gmail.loading = true; gmail.error = ''; gmail.notice = ''; renderGmail();
+  try {
+    const params = { labelIds: 'INBOX', q: gmailQuery(filter), maxResults: 10 };
+    if (pageToken) params.pageToken = pageToken;
+    const [list, profile, inboxResult] = await Promise.all([
+      api('messages', params),
+      gmail.email ? Promise.resolve({ emailAddress: gmail.email }) : api('profile'),
+      api('labels/INBOX').then(data => ({ data }), error => ({ error }))
+    ]);
+    const results = await Promise.allSettled((list.messages || []).map(message => api('messages/' + encodeURIComponent(message.id), {
+      format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date'],
+      fields: 'id,threadId,labelIds,internalDate,snippet,payload(headers)'
+    })));
+    if (!current()) return;
+    const failures = results.filter(result => result.status === 'rejected').map(result => result.reason);
+    const authError = [...failures, inboxResult.error].find(error => error && (error.status === 401 || /ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientPermissions/.test(error.details || '')));
+    if (authError) throw authError;
+    const messages = results.filter(result => result.status === 'fulfilled').map(result => result.value);
+    const failed = failures.filter(error => error.status !== 404);
+    if (failed.length && !messages.length) throw failed[0];
+    const combined = more ? [...gmail.messages, ...messages] : messages;
+    gmail.messages = Array.from(new Map(combined.map(message => [message.id, message])).values());
+    gmail.next = list.nextPageToken || '';
+    gmail.email = profile.emailAddress;
+    gmail.unread = typeof inboxResult.data?.messagesUnread === 'number' ? inboxResult.data.messagesUnread : null;
+    gmail.updatedAt = Date.now();
+    if (failed.length) gmail.error = '일부 메일을 불러오지 못했어요. 새로고침하면 다시 확인할 수 있어요.';
+  } catch (error) {
+    if (!current()) return;
+    if (error.status === 401 || /ACCESS_TOKEN_SCOPE_INSUFFICIENT|insufficientPermissions/.test(error.details || '')) {
+      clearGmailSession('Google 연결을 다시 확인해야 해요. Gmail 연결을 눌러 주세요.');
+    } else gmail.error = gmailErrorMessage(error);
+  } finally {
+    clearTimeout(timeout);
+    if (current()) { gmail.loading = false; gmail.controller = null; renderGmail(); }
+  }
+}
+function gmailMailboxUrl(threadId = '') {
+  const account = gmail.email ? '?authuser=' + encodeURIComponent(gmail.email) : '';
+  return 'https://mail.google.com/mail/' + account + (threadId ? '#all/' + encodeURIComponent(threadId) : '#inbox');
+}
+function gmailHeader(message, name) {
+  return message.payload?.headers?.find(header => header.name.toLowerCase() === name.toLowerCase())?.value || '';
+}
+function gmailPlainSnippet(value) {
+  // Decode entities in an inert text area; all output is escaped again before rendering.
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = String(value || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return textarea.value;
+}
+function renderGmail() {
+  const el = id => document.getElementById(id);
+  if (!el('gmailCard')) return;
+  const connected = gmailConnected();
+  el('gmailAccount').textContent = connected && gmail.email
+    ? gmail.email + (gmail.unread === null ? '' : ' · 받은편지함 안 읽음 ' + gmail.unread + '개')
+    : '내 Gmail을 업무와 함께 확인하세요.';
+  el('gmailConnect').classList.toggle('hidden', connected);
+  el('gmailConnect').disabled = gmail.connecting;
+  el('gmailConnect').textContent = gmail.connecting ? 'Google 확인 중…' : 'Gmail 연결';
+  el('gmailRefresh').classList.toggle('hidden', !connected);
+  el('gmailRefresh').disabled = gmail.loading;
+  el('gmailFilters').classList.toggle('hidden', !connected);
+  document.querySelectorAll('[data-gmail-filter]').forEach(button => {
+    const active = button.dataset.gmailFilter === gmail.filter;
+    button.classList.toggle('on', active); button.setAttribute('aria-pressed', String(active));
+  });
+  el('gmailOpen').href = gmailMailboxUrl();
+  const empty = { unread: '받은편지함에 안 읽은 메일이 없어요.', today: '오늘 받은 메일이 아직 없어요.', recent: '최근 7일 동안 받은 메일이 없어요.' };
+  el('gmailStatus').textContent = gmail.error || (gmail.loading ? '메일을 불러오는 중…' : gmail.notice)
+    || (connected ? (gmail.messages.length ? '받은편지함 · 메일을 누르면 Gmail에서 원문을 열어요.' : empty[gmail.filter])
+      : 'Gmail을 연결하면 받은편지함의 제목과 미리보기를 볼 수 있어요.');
+  el('gmailStatus').classList.toggle('error', !!gmail.error);
+  el('gmailMessages').setAttribute('aria-busy', String(gmail.loading));
+  el('gmailMessages').innerHTML = connected ? gmail.messages.map(message => {
+    const date = new Date(Number(message.internalDate));
+    const valid = Number.isFinite(date.getTime());
+    const dateText = valid ? date.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    return `<li><a class="gmail-message${message.labelIds?.includes('UNREAD') ? ' unread' : ''}" href="${esc(gmailMailboxUrl(message.threadId || message.id))}" target="_blank" rel="noopener noreferrer">
+      <div class="gmail-message-top"><span class="gmail-sender">${esc(gmailHeader(message, 'From') || '보낸 사람 없음')}</span><time${valid ? ' datetime="' + date.toISOString() + '"' : ''}>${esc(dateText)}</time></div>
+      <div class="gmail-subject">${esc(gmailHeader(message, 'Subject') || '(제목 없음)')}</div>
+      <div class="gmail-snippet">${esc(gmailPlainSnippet(message.snippet))}</div></a></li>`;
+  }).join('') : '';
+  el('gmailMore').classList.toggle('hidden', !connected || !gmail.next);
+  el('gmailMore').disabled = gmail.loading;
+  el('gmailUpdated').textContent = connected && gmail.updatedAt
+    ? new Date(gmail.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 확인 · 연결 중 5분마다 갱신 · 나에게만 표시'
+    : '나에게만 표시 · 메일 읽기 전용';
+}
+function maybeRefreshGmail() {
+  if (document.visibilityState !== 'visible' || document.getElementById('view-dash')?.classList.contains('hidden')) return;
+  if (gmail.token && !gmailConnected()) clearGmailSession('Google 연결이 만료됐어요. Gmail 연결을 눌러 주세요.');
+  else if (gmailConnected() && Date.now() - gmail.updatedAt >= 60000) refreshGmail();
+}
+document.addEventListener('visibilitychange', maybeRefreshGmail);
+window.addEventListener('focus', maybeRefreshGmail);
+window.addEventListener('pagehide', () => clearGmailSession());
 
 // The embedded radar is served from this same origin and reuses the already authenticated client.
 window.getWorktrackRadarContext = () => user && sb ? {client:sb,user:{id:user.id,email:user.email}} : null;
