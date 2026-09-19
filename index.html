@@ -379,7 +379,7 @@ audio{width:100%;max-width:420px;height:38px;}
   .dash-grid{grid-template-columns:1fr;}
   #memoToggle{bottom:96px;}
 }
-.radar-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.radar-head h2{margin:0;font-size:22px}.radar-head p{margin:4px 0 0;color:var(--sub);font-size:14px}.radar-frame{display:block;width:100%;height:calc(100dvh - 118px);min-height:600px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}#app.radar-wide{grid-template-columns:var(--side-w) minmax(0,1fr)}#app.radar-wide>.memo-panel{display:none}
+.radar-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 16px;margin-bottom:12px}.radar-head h2{margin:0;font-size:22px;flex-shrink:0}.radar-head p{margin:0;color:var(--sub);font-size:14px}.radar-frame{display:block;width:100%;height:calc(100dvh - 92px);min-height:600px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}#app.radar-wide{grid-template-columns:var(--side-w) minmax(0,1fr)}#app.radar-wide>.memo-panel{display:none}
 @media(max-width:700px){#app.radar-wide{grid-template-columns:1fr}.radar-head{align-items:flex-start}.radar-head h2{font-size:19px}.radar-frame{min-height:650px;height:calc(100dvh - 200px)}}
 /* ===== 아침 메일 확인 ===== */
 .gmail-card{margin-bottom:14px;overflow:hidden;}
@@ -678,7 +678,7 @@ audio{width:100%;max-width:420px;height:38px;}
       <div class="contact-grid" id="sitesGrid"></div>
     </section>
     <section id="view-radar" class="hidden" aria-labelledby="radarTitle">
-      <div class="radar-head"><div><h2 id="radarTitle">AI 추천 점유율</h2><p>현재 업무 계정의 조사 기록입니다. 자동 수집과 수동 입력을 함께 관리합니다.</p></div></div>
+      <div class="radar-head"><h2 id="radarTitle">AI 추천 점유율</h2><p>현재 업무 계정의 조사 기록입니다. 자동 수집과 수동 입력을 함께 관리합니다.</p></div>
       <iframe id="radarFrame" class="radar-frame" title="예바 AI 추천 점유율 · 원문 입력 및 조사 기록"></iframe>
     </section>
   </main>
@@ -1141,7 +1141,7 @@ function switchView(v) {
   // 사이트 공유 화면을 벗어나면 비밀번호 내용을 DOM에서 비워 잠금 유지
   if (v !== 'sites') { const sg = document.getElementById('sitesGrid'); if (sg) sg.innerHTML = ''; }
   document.getElementById('app').classList.toggle('radar-wide', v === 'radar');
-  if (v === 'radar') { const frame = document.getElementById('radarFrame'); if (!frame.getAttribute('src')) frame.src = './radar.html?v=20260917-monthly'; }
+  if (v === 'radar') { const frame = document.getElementById('radarFrame'); if (!frame.getAttribute('src')) frame.src = './radar.html?v=20260919-layout'; }
   if (v === 'radar' || location.hash === '#radar') history.replaceState(null, '', v === 'radar' ? '#radar' : location.pathname + location.search);
   renderAll();
 }
