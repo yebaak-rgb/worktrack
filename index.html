@@ -373,6 +373,10 @@ audio{width:100%;max-width:420px;height:38px;}
 .gmail-head h3{margin:0 0 3px;}
 .gmail-head>div:first-child{flex:1;min-width:160px;}
 #gmailAccount{overflow-wrap:anywhere;}
+.gmail-collapse{flex:none;white-space:nowrap;}
+.gmail-card.collapsed .gmail-head{flex-wrap:nowrap;}
+.gmail-card.collapsed .gmail-head>div:first-child{min-width:0;}
+.gmail-card.collapsed #gmailAccount{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .gmail-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
 .gmail-card a.btn{text-decoration:none;display:inline-flex;align-items:center;}
 .gmail-card button:disabled{opacity:.5;cursor:wait;}
@@ -396,7 +400,7 @@ audio{width:100%;max-width:420px;height:38px;}
 .gmail-setup-steps{padding-left:20px;font-size:13px;line-height:1.8;}
 .gmail-setup-steps a{color:var(--accent);}
 .gmail-setup-steps code{overflow-wrap:anywhere;}
-@media(max-width:700px){.gmail-card{padding:14px;}.gmail-actions{width:100%;}.gmail-list{max-height:300px;}}
+@media(max-width:700px){.gmail-card{padding:14px;}.gmail-actions{width:100%;order:2;}.gmail-collapse{order:1;}.gmail-list{max-height:300px;}}
 </style>
 </head>
 <body>
@@ -484,13 +488,15 @@ audio{width:100%;max-width:420px;height:38px;}
       <div class="card gmail-card" id="gmailCard" aria-labelledby="gmailTitle">
         <div class="gmail-head">
           <div><h3 id="gmailTitle">✉️ 아침 메일 확인</h3><div class="muted" id="gmailAccount">내 Gmail을 업무와 함께 확인하세요.</div></div>
-          <div class="gmail-actions">
+          <div class="gmail-actions" id="gmailActions">
             <button class="btn sm" id="gmailConnect" onclick="connectGmail()">Gmail 연결</button>
             <button class="btn ghost sm hidden" id="gmailRefresh" onclick="refreshGmail()">새로고침</button>
             <a class="btn ghost sm" id="gmailOpen" href="https://mail.google.com/mail/" target="_blank" rel="noopener noreferrer">Gmail 열기 ↗</a>
             <button class="btn ghost sm" onclick="openGmailSettings()" aria-label="Gmail 연결 설정">연결 설정</button>
           </div>
+          <button class="btn ghost sm gmail-collapse" id="gmailCollapse" onclick="toggleGmailCollapsed()" aria-expanded="true" aria-controls="gmailBody gmailActions">접기 ▴</button>
         </div>
+        <div id="gmailBody">
         <div class="gmail-filters hidden" id="gmailFilters" aria-label="메일 필터">
           <button type="button" data-gmail-filter="unread" onclick="setGmailFilter('unread')">안 읽은 메일</button>
           <button type="button" data-gmail-filter="today" onclick="setGmailFilter('today')">오늘 받은 메일</button>
@@ -499,6 +505,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <p class="gmail-status" id="gmailStatus" role="status" aria-live="polite">Gmail을 연결하면 받은편지함의 제목과 미리보기를 볼 수 있어요.</p>
         <ul class="gmail-list" id="gmailMessages" aria-label="받은 메일 목록"></ul>
         <div class="gmail-foot"><span class="muted" id="gmailUpdated">나에게만 표시 · 메일 읽기 전용</span><button class="btn soft sm hidden" id="gmailMore" onclick="refreshGmail(true)">더 보기</button></div>
+        </div>
       </div>
       <div class="dash-top">
         <div class="card">
@@ -2857,7 +2864,7 @@ function toast(msg) {
 // OAuth client IDs are public identifiers. Never put a client secret or token here.
 const GMAIL_CLIENT_ID = '935635493145-6i8drsuicqs7jebhi72j1m0sv4hqv9i3.apps.googleusercontent.com';
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-const gmail = { owner: '', token: '', expiresAt: 0, email: '', messages: [], filter: 'unread',
+const gmail = { owner: '', token: '', expiresAt: 0, email: '', messages: [], filter: 'unread', collapsed: false,
   unread: null, next: '', updatedAt: 0, loading: false, connecting: false, error: '', notice: '',
   generation: 0, controller: null, expiryTimer: null, pollTimer: null, library: null };
 function gmailConfigKey() { return 'worktrack_gmail_client_' + (user?.id || ''); }
@@ -2878,8 +2885,17 @@ function clearGmailSession(notice = '') {
 }
 function initGmail() {
   if (gmail.owner && gmail.owner !== user?.id) clearGmailSession();
+  try { gmail.collapsed = localStorage.getItem('worktrack_gmail_collapsed_' + user.id) === '1'; }
+  catch { gmail.collapsed = false; }
   renderGmail();
   if (gmailClientId()) loadGmailLibrary().catch(() => {});
+}
+function toggleGmailCollapsed() {
+  if (!user) return;
+  gmail.collapsed = !gmail.collapsed;
+  try { localStorage.setItem('worktrack_gmail_collapsed_' + user.id, gmail.collapsed ? '1' : '0'); }
+  catch { /* Keep the preference for this page when browser storage is unavailable. */ }
+  renderGmail();
 }
 function loadGmailLibrary() {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
@@ -2914,9 +2930,10 @@ function openGmailSettings() {
     <input id="gmailClientInput" value="${esc(gmailClientId())}" placeholder="…apps.googleusercontent.com" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')saveGmailSettings()">
     <p class="muted">이 브라우저의 내 업무 계정에 저장됩니다. 비밀번호·클라이언트 보안 비밀은 입력하지 마세요.</p>
     <p class="muted">메일과 연결 토큰은 서버에 저장하지 않습니다. 페이지를 새로 열거나 연결이 만료되면 다시 확인이 필요해요. 연결 중에는 5분마다 자동 갱신합니다.</p>
+    <p class="muted">이 페이지 연결을 해제해도 Google에서 허용한 권한은 유지됩니다. 권한까지 취소하려면 Google 권한 관리에서 확인하세요.</p>
     <p id="gmailSettingsError" class="auth-msg err" role="alert"></p>
     <div class="foot">
-      ${gmailConnected() ? '<button class="btn danger left" onclick="disconnectGmail()">연결 해제</button>' : ''}
+      ${gmailConnected() ? '<button class="btn danger left" onclick="disconnectGmail()">이 페이지 연결 해제</button>' : ''}
       <a class="btn ghost" href="https://myaccount.google.com/connections" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Google 권한 관리 ↗</a>
       <button class="btn ghost" onclick="closeModal()">닫기</button>
       <button class="btn" onclick="saveGmailSettings()">설정 저장</button>
@@ -2981,24 +2998,10 @@ function connectGmail() {
   } catch { fail('Google 연결을 시작하지 못했어요. 연결 설정의 클라이언트 ID와 사이트 주소를 확인해 주세요.'); }
 }
 function disconnectGmail() {
-  const token = gmail.token;
   clearGmailSession('이 페이지의 Gmail 연결을 해제했어요.');
   closeModal();
-  const generation = gmail.generation;
-  if (token && window.google?.accounts?.oauth2) {
-    try {
-      window.google.accounts.oauth2.revoke(token, result => {
-        if (generation !== gmail.generation) return;
-        if (!result.successful) {
-          gmail.notice = '페이지 연결은 해제됐어요. Google 권한도 지우려면 연결 설정의 Google 권한 관리를 이용하세요.';
-          renderGmail();
-        }
-      });
-    } catch {
-      gmail.notice = '페이지 연결은 해제됐어요. Google 권한은 연결 설정의 Google 권한 관리에서 확인해 주세요.';
-      renderGmail();
-    }
-  }
+  // Revoking Google consent can affect other clients in this same Cloud project.
+  // Keep that separate, explicit action in Google's account connections UI.
 }
 function gmailQuery(filter, now = new Date()) {
   if (filter === 'today') {
@@ -3101,6 +3104,11 @@ function renderGmail() {
   const el = id => document.getElementById(id);
   if (!el('gmailCard')) return;
   const connected = gmailConnected();
+  el('gmailCard').classList.toggle('collapsed', gmail.collapsed);
+  el('gmailBody').classList.toggle('hidden', gmail.collapsed);
+  el('gmailActions').classList.toggle('hidden', gmail.collapsed);
+  el('gmailCollapse').textContent = gmail.collapsed ? '펼치기 ▾' : '접기 ▴';
+  el('gmailCollapse').setAttribute('aria-expanded', String(!gmail.collapsed));
   el('gmailAccount').textContent = connected && gmail.email
     ? gmail.email + (gmail.unread === null ? '' : ' · 받은편지함 안 읽음 ' + gmail.unread + '개')
     : '내 Gmail을 업무와 함께 확인하세요.';
