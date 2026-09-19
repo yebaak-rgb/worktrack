@@ -51,20 +51,25 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);}
 
 /* ===== 3단 레이아웃: 사이드바 | 메인 | 메모 ===== */
 #app{display:grid;grid-template-columns:var(--side-w) 1fr var(--memo-w);height:100vh;}
-.sidebar{background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 12px;gap:4px;overflow-y:auto;}
-.sidebar .logo{font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;padding:4px 10px 16px;}
+.sidebar{background:#fff;border-right:1px solid var(--line);display:flex;flex-direction:column;padding:18px 12px;gap:8px;overflow:hidden;}
+.sidebar-header{flex-shrink:0;min-width:0;}
+.sidebar .logo{font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px;padding:4px 10px 12px;}
 .sidebar .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+.sidebar-clock{display:block;background:var(--accent-soft);border-radius:12px;padding:10px 12px;margin-bottom:10px;white-space:nowrap;}
+.clock-year{display:block;font-size:12px;color:var(--sub);font-weight:600;}
+.clock-date{display:flex;align-items:baseline;gap:5px;line-height:1.5;}
+#topDate{font-size:23px;font-weight:800;letter-spacing:-.8px;}
+#topWeekday{font-size:13px;color:var(--sub);font-weight:600;}
+#topTime{display:block;font-size:27px;font-weight:700;line-height:1.35;color:var(--accent);font-variant-numeric:tabular-nums;letter-spacing:.3px;}
+#globalSearch{padding:8px 10px;font-size:12.5px;background:var(--bg);}
+.sidebar-nav{display:flex;flex-direction:column;gap:4px;flex:1;min-height:0;overflow-y:auto;}
 .snav{border:none;background:transparent;text-align:left;padding:10px 12px;border-radius:10px;
   font-size:14.5px;font-weight:600;color:var(--sub);cursor:pointer;display:flex;gap:9px;align-items:center;white-space:nowrap;}
 .snav:hover{background:var(--bg);color:var(--text);}
 .snav.active{background:var(--accent);color:#fff;}
 .sidebar .sep{height:1px;background:var(--line);margin:10px 6px;}
 .sidebar .grow{flex:1;}
-.main-area{overflow-y:auto;padding:20px 22px 90px;}
-.main-head{display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;}
-.main-head h2{font-size:19px;margin:0;}
-.main-head .spacer{flex:1;}
-.today-label{color:var(--sub);font-size:13.5px;}
+.main-area{min-width:0;overflow-y:auto;padding:20px 22px 90px;}
 
 /* ===== 메모 패널 (우측 고정) ===== */
 .memo-panel{background:#fffdf3;border-left:1px solid #efe8c8;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:10px;}
@@ -353,9 +358,18 @@ audio{width:100%;max-width:420px;height:38px;}
 }
 @media(max-width:760px){
   #app{display:block;height:auto;}
-  .sidebar{position:fixed;bottom:0;left:0;right:0;z-index:50;flex-direction:row;padding:6px 8px;gap:2px;
-    border-right:none;border-top:1px solid var(--line);overflow-x:auto;align-items:center;}
-  .sidebar .logo,.sidebar .sep,.sidebar .grow{display:none;}
+  .sidebar{display:contents;}
+  .sidebar-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px;background:#fff;border-bottom:1px solid var(--line);}
+  .sidebar .logo{padding:0 2px;font-size:16px;}
+  .sidebar-clock{grid-column:2;grid-row:1 / 3;align-self:center;padding:7px 10px;margin:0;}
+  .clock-year{display:none;}
+  #topDate{font-size:20px;}
+  #topWeekday{font-size:12px;}
+  #topTime{font-size:23px;}
+  #globalSearch{grid-column:1;grid-row:2;min-width:0;}
+  .sidebar-nav{position:fixed;bottom:0;left:0;right:0;z-index:50;flex-direction:row;padding:6px 8px;gap:2px;
+    background:#fff;border-top:1px solid var(--line);overflow-x:auto;align-items:center;}
+  .sidebar .sep,.sidebar .grow{display:none;}
   .snav{padding:8px 10px;font-size:12.5px;flex-direction:column;gap:2px;}
   .snav .ico{font-size:17px;}
   .main-area{padding:14px 12px 130px;}
@@ -365,7 +379,7 @@ audio{width:100%;max-width:420px;height:38px;}
   .dash-grid{grid-template-columns:1fr;}
   #memoToggle{bottom:96px;}
 }
-.radar-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.radar-head h2{margin:0;font-size:22px}.radar-head p{margin:4px 0 0;color:var(--sub);font-size:14px}.radar-frame{display:block;width:100%;height:calc(100dvh - 180px);min-height:600px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}#app.radar-wide{grid-template-columns:var(--side-w) minmax(0,1fr)}#app.radar-wide>.memo-panel{display:none}
+.radar-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.radar-head h2{margin:0;font-size:22px}.radar-head p{margin:4px 0 0;color:var(--sub);font-size:14px}.radar-frame{display:block;width:100%;height:calc(100dvh - 118px);min-height:600px;border:1px solid var(--line);border-radius:14px;background:var(--bg)}#app.radar-wide{grid-template-columns:var(--side-w) minmax(0,1fr)}#app.radar-wide>.memo-panel{display:none}
 @media(max-width:700px){#app.radar-wide{grid-template-columns:1fr}.radar-head{align-items:flex-start}.radar-head h2{font-size:19px}.radar-frame{min-height:650px;height:calc(100dvh - 200px)}}
 /* ===== 아침 메일 확인 ===== */
 .gmail-card{margin-bottom:14px;overflow:hidden;}
@@ -455,7 +469,17 @@ audio{width:100%;max-width:420px;height:38px;}
 <div id="app" class="hidden">
   <!-- 좌측 사이드바 -->
   <aside class="sidebar">
+    <div class="sidebar-header">
     <div class="logo" onclick="openNameModal()" title="이름 설정 (클릭)" style="cursor:pointer"><span class="dot"></span> YEBA <span id="logoName">아경</span></div>
+    <time class="sidebar-clock" id="sidebarClock" title="이 기기의 현재 날짜와 시간">
+      <span class="clock-year" id="topYear"></span>
+      <span class="clock-date"><span id="topDate"></span><span id="topWeekday"></span></span>
+      <span id="topTime"></span>
+    </time>
+    <input type="search" id="globalSearch" placeholder="🔍 통합 검색" aria-label="업무·메모·회의·거래처·자료실 검색"
+      title="업무·메모·회의·거래처·자료실 검색" onkeydown="if(event.key==='Enter')doSearch()">
+    </div>
+    <nav class="sidebar-nav" aria-label="업무 메뉴">
     <button class="snav active" data-view="dash" onclick="switchView('dash')"><span class="ico">📊</span>대시보드</button>
     <button class="snav" data-view="day" onclick="switchView('day')"><span class="ico">📋</span>일간 업무</button>
     <button class="snav" data-view="week" onclick="switchView('week')"><span class="ico">🗓️</span>주간 계획</button>
@@ -471,18 +495,11 @@ audio{width:100%;max-width:420px;height:38px;}
     <button class="snav" id="teamNav" onclick="openTeamModal()" style="display:none"><span class="ico">👥</span>팀 관리</button>
     <div class="grow"></div>
     <button class="snav" onclick="doLogout()"><span class="ico">🚪</span>로그아웃</button>
+    </nav>
   </aside>
 
   <!-- 메인 -->
   <main class="main-area">
-    <div class="main-head">
-      <span class="today-label" id="topDate"></span>
-      <div class="spacer"></div>
-      <input type="search" id="globalSearch" placeholder="🔍 검색 (업무·메모·회의·거래처·자료실)"
-        style="max-width:280px;padding:7px 12px;font-size:13.5px"
-        onkeydown="if(event.key==='Enter')doSearch()">
-    </div>
-
     <!-- 대시보드 -->
     <section id="view-dash">
       <div class="card gmail-card" id="gmailCard" aria-labelledby="gmailTitle">
@@ -746,6 +763,26 @@ function fmtKo(ymd) {
 function diffDays(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000); }
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
+/* 이름 아래의 현재 날짜·시간은 탐색 중인 업무 날짜와 별개로 갱신합니다. */
+let sidebarClockTimer = null;
+function updateSidebarClock(now = new Date()) {
+  document.getElementById('topYear').textContent = now.getFullYear() + '년';
+  document.getElementById('topDate').textContent = `${now.getMonth() + 1}월 ${now.getDate()}일`;
+  document.getElementById('topWeekday').textContent = `(${DOW_KO[now.getDay()]})`;
+  document.getElementById('topTime').textContent = [now.getHours(), now.getMinutes(), now.getSeconds()].map(n => String(n).padStart(2, '0')).join(':');
+  document.getElementById('sidebarClock').dateTime = now.toISOString();
+}
+function startSidebarClock() {
+  clearInterval(sidebarClockTimer);
+  updateSidebarClock();
+  sidebarClockTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') updateSidebarClock();
+  }, 1000);
+}
+document.addEventListener('visibilitychange', () => {
+  if (sidebarClockTimer !== null && document.visibilityState === 'visible') updateSidebarClock();
+});
+
 /* ================= 휴무일 로직 ================= */
 function offTypeOf(o) {
   const m = (o && o.label || '').match(/^\[(연차|휴가|오전 반차|오후 반차|기타 휴무)\]/);
@@ -854,7 +891,7 @@ function koAuthErr(m) {
 async function startApp() {
   show('app');
   initGmail();
-  document.getElementById('topDate').textContent = '📅 ' + fmtKo(todayStr());
+  startSidebarClock();
   await loadAll();
   await ensureRoutineTasks(); // 주기 도래분 생성 (지난 것 포함)
   await rolloverTasks();      // 지난 미완료분을 오늘로 이월
