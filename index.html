@@ -2903,7 +2903,8 @@ const GMAIL_CLIENT_ID = '935635493145-6i8drsuicqs7jebhi72j1m0sv4hqv9i3.apps.goog
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const gmail = { owner: '', token: '', expiresAt: 0, email: '', messages: [], filter: 'unread', collapsed: false,
   unread: null, next: '', updatedAt: 0, loading: false, connecting: false, error: '', notice: '',
-  generation: 0, controller: null, expiryTimer: null, pollTimer: null, library: null };
+  generation: 0, epoch: 0, controller: null, expiryTimer: null, pollTimer: null, library: null,
+  serverReady: false, serverBacked: false, connectedUntil: 0, checking: false, restorePromise: null };
 function gmailConfigKey() { return 'worktrack_gmail_client_' + (user?.id || ''); }
 function gmailClientId() {
   try { return localStorage.getItem(gmailConfigKey()) || GMAIL_CLIENT_ID; }
@@ -2912,12 +2913,14 @@ function gmailClientId() {
 function gmailConnected() { return !!(gmail.token && gmail.owner === user?.id && Date.now() < gmail.expiresAt); }
 function clearGmailSession(notice = '') {
   gmail.generation++;
+  gmail.epoch++;
   gmail.controller?.abort();
   clearTimeout(gmail.expiryTimer);
   clearInterval(gmail.pollTimer);
   Object.assign(gmail, { owner: '', token: '', expiresAt: 0, email: '', messages: [], unread: null,
     next: '', updatedAt: 0, loading: false, connecting: false, error: '', notice,
-    controller: null, expiryTimer: null, pollTimer: null });
+    controller: null, expiryTimer: null, pollTimer: null, serverBacked: false,
+    connectedUntil: 0, checking: false, restorePromise: null });
   renderGmail();
 }
 function initGmail() {
@@ -2926,6 +2929,64 @@ function initGmail() {
   catch { gmail.collapsed = false; }
   renderGmail();
   if (gmailClientId()) loadGmailLibrary().catch(() => {});
+  restoreGmailSession().then(connected => { if (connected) refreshGmail(); });
+}
+async function gmailSessionRequest(action, extra = {}) {
+  const owner = user?.id;
+  const { data: { session } } = await sb.auth.getSession();
+  if (!owner || !session || session.user.id !== owner || user?.id !== owner) throw new Error('업무 계정에 다시 로그인해 주세요.');
+  const cfg = getConfig();
+  const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 25000);
+  try {
+    const response = await fetch(cfg.url + '/functions/v1/gmail-session', { method: 'POST',
+      headers: { Authorization: 'Bearer ' + session.access_token, apikey: cfg.key,
+        'Content-Type': 'application/json', 'X-Requested-With': 'XmlHttpRequest' },
+      body: JSON.stringify({ action, ...extra }), signal: controller.signal, cache: 'no-store'
+    });
+    const data = await response.json();
+    if (!response.ok) throw Object.assign(new Error(data.message || 'Gmail 연결 서버를 확인하지 못했어요. 잠시 후 다시 시도해 주세요.'), { code: data.code, status: response.status });
+    return data;
+  } finally { clearTimeout(timeout); }
+}
+function applyGmailSession(data) {
+  if (!data.accessToken || !data.email || !Number.isFinite(data.expiresAt) || !Number.isFinite(data.connectedUntil)
+      || data.expiresAt <= Date.now() || data.connectedUntil <= Date.now()) throw new Error('Google 연결 유효 시간을 확인하지 못했어요. 다시 연결해 주세요.');
+  clearTimeout(gmail.expiryTimer); clearInterval(gmail.pollTimer);
+  Object.assign(gmail, { owner: user.id, token: data.accessToken, expiresAt: data.expiresAt,
+    email: data.email, connectedUntil: data.connectedUntil, serverBacked: true, serverReady: true });
+  gmail.expiryTimer = setTimeout(() => {
+    if (document.visibilityState === 'visible') restoreGmailSession().then(ok => { if (ok) refreshGmail(); });
+  }, Math.max(1000, data.expiresAt - Date.now() - 30000));
+  gmail.pollTimer = setInterval(maybeRefreshGmail, 300000);
+}
+function restoreGmailSession(force = false) {
+  if (!user) return Promise.resolve(false);
+  if (gmail.restorePromise) return gmail.restorePromise;
+  const epoch = gmail.epoch, owner = user.id;
+  const current = () => epoch === gmail.epoch && owner === user?.id;
+  gmail.checking = true; renderGmail();
+  const pending = (async () => {
+    try {
+      const data = await gmailSessionRequest('session', { force });
+      if (!current()) return false;
+      gmail.serverReady = data.configured === true;
+      if (!data.connected) {
+        const notice = gmail.serverBacked ? '하루 연결이 끝났어요. Gmail 연결을 눌러 오늘 연결을 시작하세요.' : '';
+        clearGmailSession(notice);
+        return false;
+      }
+      applyGmailSession(data); gmail.error = ''; gmail.notice = ''; return true;
+    } catch (error) {
+      if (!current()) return false;
+      if (error.status === 409) clearGmailSession(error.message);
+      else gmail.error = error.message || '연결을 복원하지 못했어요. 잠시 후 다시 시도해 주세요.';
+      return false;
+    } finally {
+      if (gmail.restorePromise === pending) { gmail.restorePromise = null; gmail.checking = false; renderGmail(); }
+    }
+  })();
+  gmail.restorePromise = pending;
+  return pending;
 }
 function toggleGmailCollapsed() {
   if (!user) return;
@@ -2966,11 +3027,11 @@ function openGmailSettings() {
     <label for="gmailClientInput">Google OAuth 클라이언트 ID</label>
     <input id="gmailClientInput" value="${esc(gmailClientId())}" placeholder="…apps.googleusercontent.com" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')saveGmailSettings()">
     <p class="muted">이 브라우저의 내 업무 계정에 저장됩니다. 비밀번호·클라이언트 보안 비밀은 입력하지 마세요.</p>
-    <p class="muted">메일과 연결 토큰은 서버에 저장하지 않습니다. 페이지를 새로 열거나 연결이 만료되면 다시 확인이 필요해요. 연결 중에는 5분마다 자동 갱신합니다.</p>
+    <p class="muted">한 번 연결하면 최대 24시간 동안 새로고침 후에도 연결을 복원합니다. 갱신용 연결 정보는 내 업무 계정에 묶어 서버에 암호화 보관하며, 메일 내용은 저장하지 않습니다. 메일은 5분마다 갱신합니다.</p>
     <p class="muted">이 페이지 연결을 해제해도 Google에서 허용한 권한은 유지됩니다. 권한까지 취소하려면 Google 권한 관리에서 확인하세요.</p>
     <p id="gmailSettingsError" class="auth-msg err" role="alert"></p>
     <div class="foot">
-      ${gmailConnected() ? '<button class="btn danger left" onclick="disconnectGmail()">이 페이지 연결 해제</button>' : ''}
+      ${gmail.serverReady || gmailConnected() ? '<button class="btn danger left" onclick="disconnectGmail()">Gmail 연결 해제</button>' : ''}
       <a class="btn ghost" href="https://myaccount.google.com/connections" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Google 권한 관리 ↗</a>
       <button class="btn ghost" onclick="closeModal()">닫기</button>
       <button class="btn" onclick="saveGmailSettings()">설정 저장</button>
@@ -2992,7 +3053,15 @@ function saveGmailSettings() {
   loadGmailLibrary().catch(() => {});
 }
 function connectGmail() {
-  if (!user || gmail.connecting) return;
+  if (!user || gmail.connecting || gmail.checking) return;
+  if (!gmail.serverReady) {
+    restoreGmailSession().then(ok => {
+      if (ok) refreshGmail();
+      else { gmail.notice = gmail.serverReady ? '준비됐어요. Gmail 연결을 눌러 주세요.' : '연결 유지 서버 설정을 확인해 주세요.'; renderGmail(); }
+    });
+    return;
+  }
+  if (gmailClientId() !== GMAIL_CLIENT_ID) { gmail.error = '연결 유지 기능은 업무트래킹 전용 Google 클라이언트를 사용해요. 연결 설정에서 기본 클라이언트 ID를 확인해 주세요.'; renderGmail(); return; }
   if (!gmailClientId()) return openGmailSettings();
   // Open Google's popup only from a direct click, including after a slow library load.
   if (!window.google?.accounts?.oauth2) {
@@ -3005,38 +3074,42 @@ function connectGmail() {
   clearGmailSession();
   gmail.owner = user.id;
   gmail.connecting = true;
-  const generation = gmail.generation;
+  const epoch = gmail.epoch;
   const owner = user.id;
-  const current = () => generation === gmail.generation && owner === user?.id;
+  const current = () => epoch === gmail.epoch && owner === user?.id;
   const fail = message => { if (current()) { gmail.connecting = false; gmail.error = message; renderGmail(); } };
   try {
     const oauth = window.google.accounts.oauth2;
-    const client = oauth.initTokenClient({
-      client_id: gmailClientId(), scope: GMAIL_SCOPE, include_granted_scopes: false,
-      callback: response => {
+    // Prepare concurrently so requestCode still runs directly in the click gesture.
+    const preparation = gmailSessionRequest('prepare').then(data => ({ data }), error => ({ error }));
+    const client = oauth.initCodeClient({
+      client_id: GMAIL_CLIENT_ID, scope: GMAIL_SCOPE, include_granted_scopes: false, ux_mode: 'popup', select_account: true,
+      callback: async response => {
         if (!current()) return;
-        if (response.error || !response.access_token) return fail('Google 연결이 완료되지 않았어요. 계정과 읽기 권한을 확인하고 다시 연결해 주세요.');
-        if (!oauth.hasGrantedAllScopes(response, GMAIL_SCOPE)) return fail('메일을 표시하려면 Gmail 읽기 권한을 허용해 주세요.');
-        const lifetime = Number(response.expires_in);
-        if (!Number.isFinite(lifetime) || lifetime <= 30) return fail('연결 유효 시간을 확인하지 못했어요. 다시 연결해 주세요.');
-        gmail.token = response.access_token;
-        gmail.expiresAt = Date.now() + (lifetime - 30) * 1000;
-        gmail.connecting = false;
-        gmail.expiryTimer = setTimeout(() => clearGmailSession('Google 연결이 만료됐어요. Gmail 연결을 눌러 다시 확인하세요.'), lifetime * 1000 - 30000);
-        gmail.pollTimer = setInterval(maybeRefreshGmail, 300000);
-        refreshGmail();
+        if (response.error || !response.code) return fail('Google 연결이 완료되지 않았어요. 계정과 읽기 권한을 확인하고 다시 연결해 주세요.');
+        try {
+          const prepared = await preparation;
+          if (!current()) return;
+          if (prepared.error) throw prepared.error;
+          if (!prepared.data.attempt) throw new Error('연결 유지 서버 설정을 확인해 주세요.');
+          const data = await gmailSessionRequest('exchange', { code: response.code, attempt: prepared.data.attempt });
+          if (!current()) return;
+          applyGmailSession(data); gmail.connecting = false; refreshGmail();
+        } catch (error) { fail(error.message); }
       },
       error_callback: error => fail(error.type === 'popup_failed_to_open'
         ? 'Google 팝업이 차단됐어요. 이 사이트의 팝업을 허용하고 다시 연결해 주세요.'
         : 'Google 연결 창이 닫혔어요. Gmail 연결을 다시 눌러 주세요.')
     });
     renderGmail();
-    client.requestAccessToken({ prompt: 'select_account' });
+    client.requestCode();
   } catch { fail('Google 연결을 시작하지 못했어요. 연결 설정의 클라이언트 ID와 사이트 주소를 확인해 주세요.'); }
 }
-function disconnectGmail() {
-  clearGmailSession('이 페이지의 Gmail 연결을 해제했어요.');
-  closeModal();
+async function disconnectGmail() {
+  clearGmailSession('Gmail 연결을 해제하는 중…');
+  try { await gmailSessionRequest('disconnect'); gmail.notice = '서버에 보관한 Gmail 연결 정보를 삭제했어요.'; closeModal(); }
+  catch { gmail.error = '화면의 메일은 지웠지만 서버 연결 해제를 확인하지 못했어요. 연결 설정에서 다시 시도해 주세요.'; }
+  renderGmail();
   // Revoking Google consent can affect other clients in this same Cloud project.
   // Keep that separate, explicit action in Google's account connections UI.
 }
@@ -3055,13 +3128,17 @@ function setGmailFilter(filter) {
   gmail.loading = false; gmail.messages = []; gmail.next = ''; gmail.updatedAt = 0;
   refreshGmail();
 }
-async function gmailApi(path, params, token, signal) {
+async function gmailApi(path, params, token, signal, retry = true) {
   const url = new URL('https://gmail.googleapis.com/gmail/v1/users/me/' + path);
   for (const [key, value] of Object.entries(params || {})) {
     for (const item of Array.isArray(value) ? value : [value]) url.searchParams.append(key, item);
   }
   const response = await fetch(url.href, { headers: { Authorization: 'Bearer ' + token }, signal, cache: 'no-store' });
   const body = await response.json();
+  if (response.status === 401 && retry && gmail.serverBacked && !signal?.aborted) {
+    const renewed = gmail.token !== token && gmailConnected() ? true : await restoreGmailSession(true);
+    if (renewed && !signal?.aborted) return gmailApi(path, params, gmail.token, signal, false);
+  }
   if (!response.ok) {
     const error = new Error('Gmail API request failed');
     error.status = response.status;
@@ -3078,7 +3155,10 @@ function gmailErrorMessage(error) {
 }
 async function refreshGmail(more = false) {
   if (gmail.loading || !user) return;
-  if (!gmailConnected()) { clearGmailSession('Gmail 연결을 눌러 메일을 확인하세요.'); return; }
+  if (!gmailConnected()) {
+    if (!await restoreGmailSession()) return;
+    if (gmail.loading || !user) return;
+  }
   if (more && !gmail.next) return;
   const generation = ++gmail.generation, owner = user.id, token = gmail.token;
   const filter = gmail.filter, pageToken = more ? gmail.next : '';
@@ -3150,8 +3230,8 @@ function renderGmail() {
     ? gmail.email + (gmail.unread === null ? '' : ' · 받은편지함 안 읽음 ' + gmail.unread + '개')
     : '내 Gmail을 업무와 함께 확인하세요.';
   el('gmailConnect').classList.toggle('hidden', connected);
-  el('gmailConnect').disabled = gmail.connecting;
-  el('gmailConnect').textContent = gmail.connecting ? 'Google 확인 중…' : 'Gmail 연결';
+  el('gmailConnect').disabled = gmail.connecting || gmail.checking;
+  el('gmailConnect').textContent = gmail.checking ? '연결 확인 중…' : gmail.connecting ? 'Google 확인 중…' : 'Gmail 연결';
   el('gmailRefresh').classList.toggle('hidden', !connected);
   el('gmailRefresh').disabled = gmail.loading;
   el('gmailFilters').classList.toggle('hidden', !connected);
@@ -3161,7 +3241,7 @@ function renderGmail() {
   });
   el('gmailOpen').href = gmailMailboxUrl();
   const empty = { unread: '받은편지함에 안 읽은 메일이 없어요.', today: '오늘 받은 메일이 아직 없어요.', recent: '최근 7일 동안 받은 메일이 없어요.' };
-  el('gmailStatus').textContent = gmail.error || (gmail.loading ? '메일을 불러오는 중…' : gmail.notice)
+  el('gmailStatus').textContent = gmail.error || (gmail.checking ? '저장된 Gmail 연결을 확인하는 중…' : gmail.loading ? '메일을 불러오는 중…' : gmail.notice)
     || (connected ? (gmail.messages.length ? '받은편지함 · 메일을 누르면 Gmail에서 원문을 열어요.' : empty[gmail.filter])
       : 'Gmail을 연결하면 받은편지함의 제목과 미리보기를 볼 수 있어요.');
   el('gmailStatus').classList.toggle('error', !!gmail.error);
@@ -3178,12 +3258,12 @@ function renderGmail() {
   el('gmailMore').classList.toggle('hidden', !connected || !gmail.next);
   el('gmailMore').disabled = gmail.loading;
   el('gmailUpdated').textContent = connected && gmail.updatedAt
-    ? new Date(gmail.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 확인 · 연결 중 5분마다 갱신 · 나에게만 표시'
+    ? new Date(gmail.updatedAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) + ' 확인 · 5분마다 갱신 · ' + (gmail.connectedUntil ? new Date(gmail.connectedUntil).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) + '까지 연결 유지' : '나에게만 표시')
     : '나에게만 표시 · 메일 읽기 전용';
 }
 function maybeRefreshGmail() {
   if (document.visibilityState !== 'visible' || document.getElementById('view-dash')?.classList.contains('hidden')) return;
-  if (gmail.token && !gmailConnected()) clearGmailSession('Google 연결이 만료됐어요. Gmail 연결을 눌러 주세요.');
+  if (gmail.serverBacked && !gmailConnected()) restoreGmailSession().then(ok => { if (ok) refreshGmail(); });
   else if (gmailConnected() && Date.now() - gmail.updatedAt >= 60000) refreshGmail();
 }
 document.addEventListener('visibilitychange', maybeRefreshGmail);
