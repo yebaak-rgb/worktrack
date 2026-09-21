@@ -299,8 +299,23 @@ audio{width:100%;max-width:420px;height:38px;}
 .dow-picks button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
 .dash-month .dmcell.clinic-closed,.wk-mini .cellm.clinic-closed,.week-col.clinic-closed,.mcell.clinic-closed{background:#fff1f2;}
 .dash-month .dmcell.clinic-closed .dmnum,.wk-mini .cellm.clinic-closed>b,.week-col.clinic-closed h4,.week-col.clinic-closed h4 .d,.mcell.clinic-closed .dnum,#dayTitle.clinic-closed{color:#c62828;}
-.clinic-closed-label{color:#c62828;background:#ffe4e6;border-radius:4px;padding:2px 4px;margin-bottom:4px;font-size:11px;font-weight:700;overflow-wrap:anywhere;}
-#dayOffBanner.clinic-closed{color:#c62828;background:#fff1f2;}
+.clinic-closed-label{color:#c62828;background:#ffe4e6;border-radius:4px;padding:2px 4px;margin-bottom:4px;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-month .clinic-closed-label{font-size:10px;letter-spacing:-.3px;padding:1px 0;}
+.dash-month .dmnum{white-space:nowrap;}
+@media(max-width:760px){
+  .dash-month-head{flex-wrap:wrap;gap:8px;}
+  .dash-month-head h3,.dash-month-title{white-space:nowrap;}
+  .dash-month-head .dash-month-nav{order:3;width:100%;justify-content:space-between;flex:none;}
+}
+#dayOffBanner.clinic-closed,#dashOffNote.clinic-closed{color:#c62828;background:#fff1f2;}
+.holiday-status{font-size:11.5px;color:var(--sub);margin:0 0 8px;line-height:1.5;}
+.holiday-status.holiday-warning{color:#9a5b00;background:#fff6df;padding:6px 9px;border-radius:6px;}
+.dash-month .dmdow:first-child,.month-grid .dow:first-child{color:#c62828;}
+.public-holiday-summary{border:1px solid #fecdd3;border-radius:10px;background:#fff8f8;padding:12px;margin-bottom:16px;}
+.public-holiday-summary p{margin:6px 0;font-size:12px;line-height:1.6;color:var(--sub);}
+.public-holiday-summary summary{cursor:pointer;font-size:12px;color:#c62828;font-weight:600;}
+.public-holiday-summary .off-list{margin-top:8px;}
+.public-holiday-summary .off-item{background:#fff;}
 .off-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;}
 .off-item{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:9px;padding:8px 12px;font-size:14px;}
 .off-item .lbl{color:var(--sub);font-size:12.5px;flex:1;}
@@ -541,6 +556,7 @@ audio{width:100%;max-width:420px;height:38px;}
             </div>
             <span class="mini" onclick="openDashMonthFull()">전체 ›</span>
           </div>
+          <p id="dashHolidayStatus" class="holiday-status"></p>
           <div class="dash-month" id="dashMonth"></div>
         </div>
         <div class="card dash-today">
@@ -561,6 +577,7 @@ audio{width:100%;max-width:420px;height:38px;}
       </div>
       <div class="card" style="margin-top:14px">
         <h3>🗓️ 이번 주 (월~토) <span class="mini" onclick="switchView('week')">주간 계획 ›</span></h3>
+        <p id="dashWeekHolidayStatus" class="holiday-status"></p>
         <div class="wk-mini" id="dashWeek"></div>
       </div>
       <div class="dash-bottom" style="margin-top:14px">
@@ -584,6 +601,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <button class="nav-btn" onclick="moveDay(1)">›</button>
         <button class="btn soft sm" onclick="goToday()">오늘</button>
       </div>
+      <p id="dayHolidayStatus" class="holiday-status"></p>
       <div id="dayOffBanner" class="dayoff-banner hidden"></div>
       <div class="card">
         <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -622,6 +640,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <button class="nav-btn" onclick="moveWeek(1)">›</button>
         <button class="btn soft sm" onclick="goThisWeek()">이번 주</button>
       </div>
+      <p id="weekHolidayStatus" class="holiday-status"></p>
       <div class="week-grid" id="weekGrid"></div>
     </section>
 
@@ -634,6 +653,7 @@ audio{width:100%;max-width:420px;height:38px;}
         <button class="nav-btn" onclick="moveMonth(1)">›</button>
         <button class="btn soft sm" onclick="goThisMonth()">이번 달</button>
       </div>
+      <p id="monthHolidayStatus" class="holiday-status"></p>
       <div class="month-grid" id="monthGrid"></div>
     </section>
 
@@ -787,6 +807,716 @@ document.addEventListener('visibilitychange', () => {
   if (sidebarClockTimer !== null && document.visibilityState === 'visible') updateSidebarClock();
 });
 
+/* ================= 대한민국 공휴일 (모든 사용자 공통) ================= */
+// 월력요항 기반 데이터. 내장 자료는 연결 실패 시에도 사용하며, 접속 시 하루 한 번 갱신합니다.
+// Source: https://github.com/hyunbinseo/holidays-kr (MIT; license below)
+// 2026 노동절·제헌절: https://www.mpm.go.kr/mpm/comm/newsPress/newsPressRelease/?mode=view&cntId=4250&boardId=bbs_0000000000000029
+// 2027 월력요항: https://www.kasa.go.kr/prog/plcyBrf/brief/kor/sub01_01_04/view.do?plcyBrfNo=431
+const PUBLIC_HOLIDAY_SNAPSHOT_DATE = '2026-09-21';
+const PUBLIC_HOLIDAY_CACHE_KEY = 'worktrack_kr_holidays_v1_20260921';
+const PUBLIC_HOLIDAY_SOURCE = 'https://raw.githubusercontent.com/hyunbinseo/holidays-kr/main/public/basic.json';
+const PUBLIC_HOLIDAY_SNAPSHOT = {
+  "2018": {
+    "2018-01-01": [
+      "1월 1일"
+    ],
+    "2018-02-15": [
+      "설날 전날"
+    ],
+    "2018-02-16": [
+      "설날"
+    ],
+    "2018-02-17": [
+      "설날 다음 날"
+    ],
+    "2018-03-01": [
+      "3ㆍ1절"
+    ],
+    "2018-05-05": [
+      "어린이날"
+    ],
+    "2018-05-07": [
+      "대체공휴일(어린이날)"
+    ],
+    "2018-05-22": [
+      "부처님 오신 날"
+    ],
+    "2018-06-06": [
+      "현충일"
+    ],
+    "2018-06-13": [
+      "전국동시지방선거"
+    ],
+    "2018-08-15": [
+      "광복절"
+    ],
+    "2018-09-23": [
+      "추석 전날"
+    ],
+    "2018-09-24": [
+      "추석"
+    ],
+    "2018-09-25": [
+      "추석 다음 날"
+    ],
+    "2018-09-26": [
+      "대체공휴일(추석)"
+    ],
+    "2018-10-03": [
+      "개천절"
+    ],
+    "2018-10-09": [
+      "한글날"
+    ],
+    "2018-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2019": {
+    "2019-01-01": [
+      "1월 1일"
+    ],
+    "2019-02-04": [
+      "설날 전날"
+    ],
+    "2019-02-05": [
+      "설날"
+    ],
+    "2019-02-06": [
+      "설날 다음 날"
+    ],
+    "2019-03-01": [
+      "3ㆍ1절"
+    ],
+    "2019-05-05": [
+      "어린이날"
+    ],
+    "2019-05-06": [
+      "대체공휴일(어린이날)"
+    ],
+    "2019-05-12": [
+      "부처님 오신 날"
+    ],
+    "2019-06-06": [
+      "현충일"
+    ],
+    "2019-08-15": [
+      "광복절"
+    ],
+    "2019-09-12": [
+      "추석 전날"
+    ],
+    "2019-09-13": [
+      "추석"
+    ],
+    "2019-09-14": [
+      "추석 다음 날"
+    ],
+    "2019-10-03": [
+      "개천절"
+    ],
+    "2019-10-09": [
+      "한글날"
+    ],
+    "2019-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2020": {
+    "2020-01-01": [
+      "1월 1일"
+    ],
+    "2020-01-24": [
+      "설날 전날"
+    ],
+    "2020-01-25": [
+      "설날"
+    ],
+    "2020-01-26": [
+      "설날 다음 날"
+    ],
+    "2020-01-27": [
+      "대체공휴일(설날)"
+    ],
+    "2020-03-01": [
+      "3ㆍ1절"
+    ],
+    "2020-04-15": [
+      "제21대 국회의원선거"
+    ],
+    "2020-04-30": [
+      "부처님 오신 날"
+    ],
+    "2020-05-05": [
+      "어린이날"
+    ],
+    "2020-06-06": [
+      "현충일"
+    ],
+    "2020-08-15": [
+      "광복절"
+    ],
+    "2020-08-17": [
+      "임시공휴일"
+    ],
+    "2020-09-30": [
+      "추석 전날"
+    ],
+    "2020-10-01": [
+      "추석"
+    ],
+    "2020-10-02": [
+      "추석 다음 날"
+    ],
+    "2020-10-03": [
+      "개천절"
+    ],
+    "2020-10-09": [
+      "한글날"
+    ],
+    "2020-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2021": {
+    "2021-01-01": [
+      "1월 1일"
+    ],
+    "2021-02-11": [
+      "설날 전날"
+    ],
+    "2021-02-12": [
+      "설날"
+    ],
+    "2021-02-13": [
+      "설날 다음 날"
+    ],
+    "2021-03-01": [
+      "3ㆍ1절"
+    ],
+    "2021-05-05": [
+      "어린이날"
+    ],
+    "2021-05-19": [
+      "부처님 오신 날"
+    ],
+    "2021-06-06": [
+      "현충일"
+    ],
+    "2021-08-15": [
+      "광복절"
+    ],
+    "2021-08-16": [
+      "대체공휴일(광복절)"
+    ],
+    "2021-09-20": [
+      "추석 전날"
+    ],
+    "2021-09-21": [
+      "추석"
+    ],
+    "2021-09-22": [
+      "추석 다음 날"
+    ],
+    "2021-10-03": [
+      "개천절"
+    ],
+    "2021-10-04": [
+      "대체공휴일(개천절)"
+    ],
+    "2021-10-09": [
+      "한글날"
+    ],
+    "2021-10-11": [
+      "대체공휴일(한글날)"
+    ],
+    "2021-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2022": {
+    "2022-01-01": [
+      "1월 1일"
+    ],
+    "2022-01-31": [
+      "설날 전날"
+    ],
+    "2022-02-01": [
+      "설날"
+    ],
+    "2022-02-02": [
+      "설날 다음 날"
+    ],
+    "2022-03-01": [
+      "3ㆍ1절"
+    ],
+    "2022-03-09": [
+      "대통령선거"
+    ],
+    "2022-05-05": [
+      "어린이날"
+    ],
+    "2022-05-08": [
+      "부처님 오신 날"
+    ],
+    "2022-06-01": [
+      "전국동시지방선거"
+    ],
+    "2022-06-06": [
+      "현충일"
+    ],
+    "2022-08-15": [
+      "광복절"
+    ],
+    "2022-09-09": [
+      "추석 전날"
+    ],
+    "2022-09-10": [
+      "추석"
+    ],
+    "2022-09-11": [
+      "추석 다음 날"
+    ],
+    "2022-09-12": [
+      "대체공휴일(추석)"
+    ],
+    "2022-10-03": [
+      "개천절"
+    ],
+    "2022-10-09": [
+      "한글날"
+    ],
+    "2022-10-10": [
+      "대체공휴일(한글날)"
+    ],
+    "2022-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2023": {
+    "2023-01-01": [
+      "1월 1일"
+    ],
+    "2023-01-21": [
+      "설날 전날"
+    ],
+    "2023-01-22": [
+      "설날"
+    ],
+    "2023-01-23": [
+      "설날 다음 날"
+    ],
+    "2023-01-24": [
+      "대체공휴일(설날)"
+    ],
+    "2023-03-01": [
+      "3ㆍ1절"
+    ],
+    "2023-05-05": [
+      "어린이날"
+    ],
+    "2023-05-27": [
+      "부처님 오신 날"
+    ],
+    "2023-05-29": [
+      "대체공휴일(부처님 오신 날)"
+    ],
+    "2023-06-06": [
+      "현충일"
+    ],
+    "2023-08-15": [
+      "광복절"
+    ],
+    "2023-09-28": [
+      "추석 전날"
+    ],
+    "2023-09-29": [
+      "추석"
+    ],
+    "2023-09-30": [
+      "추석 다음 날"
+    ],
+    "2023-10-02": [
+      "임시공휴일"
+    ],
+    "2023-10-03": [
+      "개천절"
+    ],
+    "2023-10-09": [
+      "한글날"
+    ],
+    "2023-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2024": {
+    "2024-01-01": [
+      "1월 1일"
+    ],
+    "2024-02-09": [
+      "설날 전날"
+    ],
+    "2024-02-10": [
+      "설날"
+    ],
+    "2024-02-11": [
+      "설날 다음 날"
+    ],
+    "2024-02-12": [
+      "대체공휴일(설날)"
+    ],
+    "2024-03-01": [
+      "3ㆍ1절"
+    ],
+    "2024-04-10": [
+      "제22대국회의원선거"
+    ],
+    "2024-05-05": [
+      "어린이날"
+    ],
+    "2024-05-06": [
+      "대체공휴일(어린이날)"
+    ],
+    "2024-05-15": [
+      "부처님 오신 날"
+    ],
+    "2024-06-06": [
+      "현충일"
+    ],
+    "2024-08-15": [
+      "광복절"
+    ],
+    "2024-09-16": [
+      "추석 전날"
+    ],
+    "2024-09-17": [
+      "추석"
+    ],
+    "2024-09-18": [
+      "추석 다음 날"
+    ],
+    "2024-10-01": [
+      "임시공휴일"
+    ],
+    "2024-10-03": [
+      "개천절"
+    ],
+    "2024-10-09": [
+      "한글날"
+    ],
+    "2024-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2025": {
+    "2025-01-01": [
+      "1월 1일"
+    ],
+    "2025-01-27": [
+      "임시공휴일"
+    ],
+    "2025-01-28": [
+      "설날 전날"
+    ],
+    "2025-01-29": [
+      "설날"
+    ],
+    "2025-01-30": [
+      "설날 다음 날"
+    ],
+    "2025-03-01": [
+      "3ㆍ1절"
+    ],
+    "2025-03-03": [
+      "대체공휴일(3ㆍ1절)"
+    ],
+    "2025-05-05": [
+      "어린이날",
+      "부처님 오신 날"
+    ],
+    "2025-05-06": [
+      "대체공휴일(부처님 오신 날)"
+    ],
+    "2025-06-03": [
+      "임시공휴일(대통령선거)"
+    ],
+    "2025-06-06": [
+      "현충일"
+    ],
+    "2025-08-15": [
+      "광복절"
+    ],
+    "2025-10-03": [
+      "개천절"
+    ],
+    "2025-10-05": [
+      "추석 전날"
+    ],
+    "2025-10-06": [
+      "추석"
+    ],
+    "2025-10-07": [
+      "추석 다음 날"
+    ],
+    "2025-10-08": [
+      "대체공휴일(추석)"
+    ],
+    "2025-10-09": [
+      "한글날"
+    ],
+    "2025-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2026": {
+    "2026-01-01": [
+      "1월 1일"
+    ],
+    "2026-02-16": [
+      "설날 전날"
+    ],
+    "2026-02-17": [
+      "설날"
+    ],
+    "2026-02-18": [
+      "설날 다음 날"
+    ],
+    "2026-03-01": [
+      "3ㆍ1절"
+    ],
+    "2026-03-02": [
+      "대체공휴일(3ㆍ1절)"
+    ],
+    "2026-05-01": [
+      "노동절"
+    ],
+    "2026-05-05": [
+      "어린이날"
+    ],
+    "2026-05-24": [
+      "부처님 오신 날"
+    ],
+    "2026-05-25": [
+      "대체공휴일(부처님 오신 날)"
+    ],
+    "2026-06-03": [
+      "전국동시지방선거"
+    ],
+    "2026-06-06": [
+      "현충일"
+    ],
+    "2026-07-17": [
+      "제헌절"
+    ],
+    "2026-08-15": [
+      "광복절"
+    ],
+    "2026-08-17": [
+      "대체공휴일(광복절)"
+    ],
+    "2026-09-24": [
+      "추석 전날"
+    ],
+    "2026-09-25": [
+      "추석"
+    ],
+    "2026-09-26": [
+      "추석 다음 날"
+    ],
+    "2026-10-03": [
+      "개천절"
+    ],
+    "2026-10-05": [
+      "대체공휴일(개천절)"
+    ],
+    "2026-10-09": [
+      "한글날"
+    ],
+    "2026-12-25": [
+      "기독탄신일"
+    ]
+  },
+  "2027": {
+    "2027-01-01": [
+      "1월 1일"
+    ],
+    "2027-02-06": [
+      "설날 전날"
+    ],
+    "2027-02-07": [
+      "설날"
+    ],
+    "2027-02-08": [
+      "설날 다음 날"
+    ],
+    "2027-02-09": [
+      "대체공휴일(설날)"
+    ],
+    "2027-03-01": [
+      "3ㆍ1절"
+    ],
+    "2027-05-01": [
+      "노동절"
+    ],
+    "2027-05-03": [
+      "대체공휴일(노동절)"
+    ],
+    "2027-05-05": [
+      "어린이날"
+    ],
+    "2027-05-13": [
+      "부처님 오신 날"
+    ],
+    "2027-06-06": [
+      "현충일"
+    ],
+    "2027-07-17": [
+      "제헌절"
+    ],
+    "2027-07-19": [
+      "대체공휴일(제헌절)"
+    ],
+    "2027-08-15": [
+      "광복절"
+    ],
+    "2027-08-16": [
+      "대체공휴일(광복절)"
+    ],
+    "2027-09-14": [
+      "추석 전날"
+    ],
+    "2027-09-15": [
+      "추석"
+    ],
+    "2027-09-16": [
+      "추석 다음 날"
+    ],
+    "2027-10-03": [
+      "개천절"
+    ],
+    "2027-10-04": [
+      "대체공휴일(개천절)"
+    ],
+    "2027-10-09": [
+      "한글날"
+    ],
+    "2027-10-11": [
+      "대체공휴일(한글날)"
+    ],
+    "2027-12-25": [
+      "기독탄신일"
+    ],
+    "2027-12-27": [
+      "대체공휴일(기독탄신일)"
+    ]
+  }
+};
+let publicHolidayData = { ...PUBLIC_HOLIDAY_SNAPSHOT };
+let publicHolidayCheckedAt = 0;
+let publicHolidayAttemptedAt = 0;
+let publicHolidayLoadPromise = null;
+
+function validatePublicHolidays(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('공휴일 자료 형식 오류');
+  const years = Object.entries(data);
+  if (!years.length || years.length > 100) throw new Error('공휴일 연도 범위 오류');
+  const clean = {};
+  for (const [year, dates] of years) {
+    if (!/^20\d{2}$/.test(year) || !dates || typeof dates !== 'object' || Array.isArray(dates)) throw new Error('공휴일 연도 오류');
+    const entries = Object.entries(dates);
+    if (entries.length < 14 || entries.length > 40) throw new Error('불완전한 공휴일 자료');
+    clean[year] = {};
+    for (const [date, names] of entries) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !date.startsWith(year + '-') || toYMD(new Date(date + 'T00:00:00')) !== date) throw new Error('공휴일 날짜 오류');
+      if (!Array.isArray(names) || !names.length || names.length > 5 || names.some(n => typeof n !== 'string' || !n.trim() || n.length > 100)) throw new Error('공휴일 이름 오류');
+      clean[year][date] = [...new Set(names.map(n => n.trim()))];
+    }
+    // 오류/빈 응답으로 한 해의 공휴일을 지우지 않습니다.
+    if (['01-01','03-01','05-05','06-06','08-15','10-03','10-09','12-25'].some(md => !clean[year][year + '-' + md])) throw new Error('필수 공휴일 누락');
+    const allNames = Object.values(clean[year]).flat();
+    if (allNames.filter(n => /설날/.test(n)).length < 3 || allNames.filter(n => /추석/.test(n)).length < 3 || !allNames.some(n => /부처님/.test(n))) throw new Error('음력 공휴일 누락');
+  }
+  return clean;
+}
+async function loadPublicHolidays() {
+  if (publicHolidayLoadPromise) return publicHolidayLoadPromise;
+  publicHolidayLoadPromise = (async () => {
+    const now = Date.now();
+    publicHolidayAttemptedAt = now;
+    try {
+      const cached = JSON.parse(localStorage.getItem(PUBLIC_HOLIDAY_CACHE_KEY) || 'null');
+      if (cached && Number.isFinite(cached.checkedAt) && cached.checkedAt <= now) {
+        const clean = validatePublicHolidays(cached.data);
+        publicHolidayData = { ...PUBLIC_HOLIDAY_SNAPSHOT, ...clean };
+        publicHolidayCheckedAt = cached.checkedAt;
+        if (now - cached.checkedAt < 86400000) return;
+      }
+    } catch (_) { /* 저장소 차단/손상 시 내장 자료 사용 */ }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      const response = await fetch(PUBLIC_HOLIDAY_SOURCE, { signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer', cache: 'no-cache' });
+      if (!response.ok) throw new Error('공휴일 자료 응답 오류');
+      const body = await response.text();
+      if (body.length > 100000) throw new Error('공휴일 자료 크기 오류');
+      const clean = validatePublicHolidays(JSON.parse(body));
+      publicHolidayData = { ...publicHolidayData, ...clean };
+      publicHolidayCheckedAt = now;
+      try { localStorage.setItem(PUBLIC_HOLIDAY_CACHE_KEY, JSON.stringify({ checkedAt: now, data: publicHolidayData })); } catch (_) {}
+    } catch (_) { /* 네트워크 장애 시 최근 캐시/내장 자료를 계속 적용 */ }
+    finally { clearTimeout(timer); }
+  })();
+  try { await publicHolidayLoadPromise; }
+  finally { publicHolidayLoadPromise = null; }
+}
+function publicHolidayNames(ymd) { return publicHolidayData[ymd.slice(0, 4)]?.[ymd] || []; }
+function publicHolidayLabel(ymd) { return publicHolidayNames(ymd).join(' · '); }
+function isPublicHoliday(ymd) { return publicHolidayNames(ymd).length > 0; }
+function isCalendarRedDay(ymd) { return dowOf(ymd) === 0 || isPublicHoliday(ymd) || isClinicClosed(ymd); }
+function holidayCoverageMessage(...dates) {
+  const missing = [...new Set(dates.map(d => d.slice(0, 4)))].filter(y => !publicHolidayData[y]);
+  return missing.length ? `${missing.join('·')}년 공휴일 자료가 아직 없습니다. 필요한 휴진일은 휴무 관리에서 직접 지정해 주세요.` : '🔴 대한민국 공휴일 · 대체공휴일 기본 적용';
+}
+function renderHolidayCoverage(id, ...dates) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = holidayCoverageMessage(...dates);
+  el.classList.toggle('holiday-warning', dates.some(d => !publicHolidayData[d.slice(0, 4)]));
+}
+function renderPublicHolidayList(year) {
+  const el = document.getElementById('publicHolidayList');
+  if (!el) return;
+  const dates = publicHolidayData[year];
+  el.innerHTML = dates ? Object.keys(dates).sort().map(d => `<div class="off-item"><span>${fmtKo(d)}</span><span class="lbl">${esc(publicHolidayLabel(d))}</span></div>`).join('') : `<p class="muted">${esc(holidayCoverageMessage(year + '-01-01'))}</p>`;
+}
+document.addEventListener('visibilitychange', () => {
+  if (user && document.visibilityState === 'visible' && Date.now() - publicHolidayAttemptedAt >= 86400000) {
+    loadPublicHolidays().then(() => renderAll());
+  }
+});
+/* MIT License
+
+Copyright (c) 2023 Hyunbin Seo
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+ */
+
 /* ================= 휴무일 로직 ================= */
 function offTypeOf(o) {
   const m = (o && o.label || '').match(/^\[(휴진일|연차|휴가|오전 반차|오후 반차|기타 휴무)\]/);
@@ -794,8 +1524,13 @@ function offTypeOf(o) {
 }
 function offIcon(o) { return ({ '휴진일': '🔴', '연차': '🏖️', '휴가': '🌴', '오전 반차': '🌤️', '오후 반차': '🌙', '기타 휴무': '📌' })[offTypeOf(o)] || '🏖️'; }
 function isClinicClosed(ymd) { return state.daysOff.some(o => o.date === ymd && offTypeOf(o) === '휴진일'); }
-function clinicClosedTag(ymd) { return isClinicClosed(ymd) ? `<div class="clinic-closed-label" title="${esc(dayOffLabel(ymd))}">${esc(dayOffLabel(ymd))}</div>` : ''; }
-function dayOffIcon(ymd) { const o = state.daysOff.find(x => x.date === ymd); return o ? offIcon(o) : (state.weeklyOff.includes(dowOf(ymd)) ? '🏖️' : ''); }
+function clinicClosedTag(ymd) {
+  const labels = [...publicHolidayNames(ymd)];
+  const personal = state.daysOff.find(o => o.date === ymd && offTypeOf(o) === '휴진일');
+  if (personal) labels.push(offLabelText(personal));
+  return [...new Set(labels)].map(label => `<div class="clinic-closed-label" title="${esc(label)}">${esc(label)}</div>`).join('');
+}
+function dayOffIcon(ymd) { if (isPublicHoliday(ymd)) return '🔴'; const o = state.daysOff.find(x => x.date === ymd); return o ? offIcon(o) : (state.weeklyOff.includes(dowOf(ymd)) ? '🏖️' : ''); }
 function isPartialOffRecord(o) { return ['오전 반차', '오후 반차'].includes(offTypeOf(o)); }
 function partialOffOf(ymd) { return state.daysOff.find(o => o.date === ymd && isPartialOffRecord(o)) || null; }
 function offLabelText(o) {
@@ -804,12 +1539,15 @@ function offLabelText(o) {
   return m ? `${m[1]}${m[2] ? ' · ' + m[2] : ''}` : raw;
 }
 function isDayOff(ymd) {
+  if (isPublicHoliday(ymd)) return true;
   if (state.weeklyOff.includes(dowOf(ymd))) return true;
   return state.daysOff.some(o => o.date === ymd && !isPartialOffRecord(o));
 }
 function dayOffLabel(ymd) {
+  const labels = [...publicHolidayNames(ymd)];
   const o = state.daysOff.find(o => o.date === ymd);
-  if (o) return offLabelText(o);
+  if (o) labels.push(offLabelText(o));
+  if (labels.length) return [...new Set(labels)].join(' · ');
   if (state.weeklyOff.includes(dowOf(ymd))) return `매주 ${DOW_KO[dowOf(ymd)]}요일 휴무`;
   return '';
 }
@@ -898,8 +1636,8 @@ async function startApp() {
   show('app');
   initGmail();
   startSidebarClock();
-  await loadAll();
-  await ensureRoutineTasks(); // 주기 도래분 생성 (지난 것 포함)
+  await Promise.all([loadAll(), loadPublicHolidays()]);
+  await ensureRoutineTasks(); // 공휴일 자료 확인 후 주기 도래분 생성
   await rolloverTasks();      // 지난 미완료분을 오늘로 이월
   updateLogo();               // 사이드바에 내 표시 이름 반영
   renderAll();
@@ -1508,10 +2246,11 @@ function renderDashMonth() {
     cellHtml += clinicClosedTag(d);
     items.slice(0, 3).forEach(h => cellHtml += h);
     if (items.length > 3) cellHtml += `<div class="dmmore">+${items.length - 3}건</div>`;
-    html += `<div class="${cls}${isClinicClosed(d) ? ' clinic-closed' : ''}" data-d="${d}">${cellHtml}</div>`;
+    html += `<div class="${cls}${isCalendarRedDay(d) ? ' clinic-closed' : ''}" data-d="${d}">${cellHtml}</div>`;
     d = addDays(d, 1);
   }
   box.innerHTML = html;
+  renderHolidayCoverage('dashHolidayStatus', addDays(`${ym}-01`, -dowOf(`${ym}-01`)), addDays(d, -1));
   box.querySelectorAll('.dmcell').forEach(c => c.onclick = () => { curDate = c.dataset.d; switchView('day'); });
 }
 function renderDash() {
@@ -1533,6 +2272,7 @@ function renderDash() {
   document.getElementById('dashProg').style.width = list.length ? (done / list.length * 100) + '%' : '0%';
   document.getElementById('dashProgTxt').textContent = list.length ? `${done}/${list.length} 완료` : '—';
   const offNote = document.getElementById('dashOffNote');
+  offNote.classList.toggle('clinic-closed', isPublicHoliday(today) || isClinicClosed(today));
   if (isDayOff(today)) {
     offNote.textContent = `${dayOffIcon(today)} 오늘은 ${dayOffLabel(today)}! 푹 쉬세요.`;
     offNote.classList.remove('hidden');
@@ -1555,13 +2295,14 @@ function renderDash() {
   const wk = document.getElementById('dashWeek');
   wk.innerHTML = '';
   const ws = weekStart(today);
+  renderHolidayCoverage('dashWeekHolidayStatus', ws, addDays(ws, 5));
   for (let i = 0; i < 7; i++) {
     const d = addDays(ws, i);
     if (dowOf(d) === 0) continue; // 일요일만 숨김 (월~토 표시, 토요일 근무 여부는 개인 휴무 설정에 따름)
     const ts = tasksOf(d).sort(weekTaskSort);
     const dn = ts.filter(t => t.done).length;
     const cell = document.createElement('div');
-    cell.className = 'cellm' + (d === today ? ' today' : '') + (isDayOff(d) ? ' off' : '') + (isClinicClosed(d) ? ' clinic-closed' : '');
+    cell.className = 'cellm' + (d === today ? ' today' : '') + (isDayOff(d) ? ' off' : '') + (isCalendarRedDay(d) ? ' clinic-closed' : '');
     let html = `<b>${DOW_KO[dowOf(d)]} ${Number(d.slice(8))}</b>`;
     html += `<span class="cnt">${isDayOff(d) ? `${dayOffIcon(d)} 휴무` : (ts.length ? `${dn}/${ts.length} 완료` : '·')}</span>`;
     html += clinicClosedTag(d);
@@ -1644,10 +2385,11 @@ async function saveDayOrder() {
 }
 function renderDay() {
   const isToday = curDate === todayStr();
+  renderHolidayCoverage('dayHolidayStatus', curDate);
   document.getElementById('dayTitle').textContent = fmtKo(curDate) + (isToday ? ' · 오늘' : '');
   const banner = document.getElementById('dayOffBanner');
-  document.getElementById('dayTitle').classList.toggle('clinic-closed', isClinicClosed(curDate));
-  banner.classList.toggle('clinic-closed', isClinicClosed(curDate));
+  document.getElementById('dayTitle').classList.toggle('clinic-closed', isCalendarRedDay(curDate));
+  banner.classList.toggle('clinic-closed', isPublicHoliday(curDate) || isClinicClosed(curDate));
   if (isDayOff(curDate)) {
     banner.textContent = `${dayOffIcon(curDate)} ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 이 날짜에 두려면 '📌 날짜 고정'을 선택하세요.`;
     banner.classList.remove('hidden');
@@ -1711,6 +2453,7 @@ function jumpToWeek(v) {
 }
 function renderWeek() {
   const end = addDays(curWeekStart, 5); // 월~토 표시
+  renderHolidayCoverage('weekHolidayStatus', curWeekStart, end);
   document.getElementById('weekTitle').textContent = `${fmtKo(curWeekStart)} ~ ${fmtKo(end)}`;
   const grid = document.getElementById('weekGrid');
   grid.innerHTML = '';
@@ -1719,7 +2462,7 @@ function renderWeek() {
     if (dowOf(d) === 0) continue; // 주간 계획에선 일요일 숨김 (월간 캘린더에는 표시)
     const col = document.createElement('div');
     const off = isDayOff(d);
-    col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '') + (isClinicClosed(d) ? ' clinic-closed' : '');
+    col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '') + (isCalendarRedDay(d) ? ' clinic-closed' : '');
     const ts = tasksOf(d).sort(weekTaskSort);
     col.innerHTML = `<h4><span>${DOW_KO[dowOf(d)]} <span class="d">${Number(d.slice(8))}일</span></span>
       ${off ? `<span class="off-tag">${dayOffIcon(d)}</span>` : ''}</h4>${clinicClosedTag(d)}`;
@@ -1774,7 +2517,7 @@ function renderMonth() {
     const cell = document.createElement('div');
     const inMonth = d.slice(0, 7) === curMonth;
     const off = isDayOff(d);
-    cell.className = 'mcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '') + (isClinicClosed(d) ? ' clinic-closed' : '');
+    cell.className = 'mcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '') + (isCalendarRedDay(d) ? ' clinic-closed' : '');
     const ts = tasksOf(d);
     // 반복 고정업무(매주/2주/매월) 예정 표시 — 아직 생성 안 된 도래분만(중복 방지)
     const rOcc = state.routines.filter(r => r.active && r.show_on_calendar !== false && routineOccursOn(r, d) && !ts.some(t => t.routine_id === r.id));
@@ -1794,6 +2537,7 @@ function renderMonth() {
     grid.appendChild(cell);
     d = addDays(d, 1);
   }
+  renderHolidayCoverage('monthHolidayStatus', addDays(first, -dowOf(first)), addDays(d, -1));
 }
 /* ================= 메모 (우측 패널, 개인/업무 구분) ================= */
 let memoFilter = '전체';
@@ -2356,6 +3100,8 @@ async function delRoutine(id) {
 
 /* ================= 휴무 관리 (요일 고정 + 지정일) ================= */
 function openOffModal() {
+  const year = todayStr().slice(0, 4);
+  const years = [...new Set([...Object.keys(publicHolidayData), year])].sort().reverse();
   const dowBtns = DOW_KO.map((d, i) =>
     `<button class="${state.weeklyOff.includes(i) ? 'on' : ''}" onclick="toggleWeeklyOff(${i})">${d}</button>`).join('');
   const items = state.daysOff.map(o => `
@@ -2365,10 +3111,20 @@ function openOffModal() {
     </div>`).join('') || '<div class="muted">등록된 휴가·휴진일이 없어요.</div>';
   openModal(`
     <h3>🏖️ 휴가 · 휴진일 관리</h3>
+    <div class="public-holiday-summary">
+      <b>🇰🇷 대한민국 공휴일 · 대체공휴일</b>
+      <p>모든 사용자에게 기본 적용됩니다. 일반 업무 추가·자동 이월·고정 업무 생성 시 공휴일을 피해 배정합니다. 개인 휴가를 삭제해도 공휴일은 유지됩니다.</p>
+      <details><summary>기본 공휴일 목록 보기</summary>
+        <label for="publicHolidayYear">연도</label>
+        <select id="publicHolidayYear" onchange="renderPublicHolidayList(this.value)">${years.map(y => `<option value="${y}" ${y === year ? 'selected' : ''}>${y}년</option>`).join('')}</select>
+        <div id="publicHolidayList" class="off-list"></div>
+      </details>
+      <p>${publicHolidayCheckedAt ? `최근 자료 확인: ${toYMD(new Date(publicHolidayCheckedAt))}` : `기본 자료 기준: ${PUBLIC_HOLIDAY_SNAPSHOT_DATE}`} · <a href="https://github.com/hyunbinseo/holidays-kr" target="_blank" rel="noopener noreferrer">월력요항 기반 자료</a></p>
+    </div>
     <label>매주 고정 휴무 요일 (누르면 켜짐/꺼짐)</label>
     <div class="dow-picks">${dowBtns}</div>
     <label>휴가 · 휴진일 등록</label>
-    <p class="muted">빠진 대체공휴일이나 내가 일하지 않는 날은 ‘휴진일 (빨간날)’로 직접 지정하세요. 내 일정에 빨간 날짜와 사유가 표시됩니다.</p>
+    <p class="muted">기본 공휴일 외에 내가 일하지 않는 날은 ‘휴진일 (빨간날)’로 추가하세요. 내 일정에 빨간 날짜와 사유가 표시됩니다.</p>
     <div class="row">
       <input type="date" id="offDate" style="flex:1;min-width:140px">
       <select id="offType" style="width:auto;min-width:120px">
@@ -2384,8 +3140,9 @@ function openOffModal() {
     </div>
     <label>등록된 휴가 · 휴진일</label>
     <div class="off-list">${items}</div>
-    <p class="muted" style="margin-bottom:0">휴진일·연차·휴가는 하루 전체 휴무입니다. 일반 업무를 새로 추가하면 다음 근무일에 배정되며, 이미 등록된 업무는 그대로 유지됩니다. 반차는 업무가 정상 배정됩니다. 휴진일을 해제하려면 목록의 ✕를 누르세요.</p>
+    <p class="muted" style="margin-bottom:0">공휴일·휴진일·연차·휴가는 하루 전체 휴무입니다. 일반 업무를 새로 추가하면 다음 근무일에 배정되며, 이미 등록된 업무는 그대로 유지됩니다. 반차만 지정한 근무일은 업무가 정상 배정됩니다. 개인 휴진일을 해제하려면 목록의 ✕를 누르세요.</p>
     <div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>`);
+  renderPublicHolidayList(year);
 }
 async function toggleWeeklyOff(dow) {
   const set = new Set(state.weeklyOff);
