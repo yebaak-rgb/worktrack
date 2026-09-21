@@ -297,6 +297,10 @@ audio{width:100%;max-width:420px;height:38px;}
 .dow-picks{display:flex;gap:4px;flex-wrap:wrap;}
 .dow-picks button{width:40px;height:36px;border-radius:9px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:700;font-size:13px;color:var(--sub);}
 .dow-picks button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.dash-month .dmcell.clinic-closed,.wk-mini .cellm.clinic-closed,.week-col.clinic-closed,.mcell.clinic-closed{background:#fff1f2;}
+.dash-month .dmcell.clinic-closed .dmnum,.wk-mini .cellm.clinic-closed>b,.week-col.clinic-closed h4,.week-col.clinic-closed h4 .d,.mcell.clinic-closed .dnum,#dayTitle.clinic-closed{color:#c62828;}
+.clinic-closed-label{color:#c62828;background:#ffe4e6;border-radius:4px;padding:2px 4px;margin-bottom:4px;font-size:11px;font-weight:700;overflow-wrap:anywhere;}
+#dayOffBanner.clinic-closed{color:#c62828;background:#fff1f2;}
 .off-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;}
 .off-item{display:flex;align-items:center;gap:10px;background:var(--bg);border-radius:9px;padding:8px 12px;font-size:14px;}
 .off-item .lbl{color:var(--sub);font-size:12.5px;flex:1;}
@@ -785,10 +789,12 @@ document.addEventListener('visibilitychange', () => {
 
 /* ================= 휴무일 로직 ================= */
 function offTypeOf(o) {
-  const m = (o && o.label || '').match(/^\[(연차|휴가|오전 반차|오후 반차|기타 휴무)\]/);
+  const m = (o && o.label || '').match(/^\[(휴진일|연차|휴가|오전 반차|오후 반차|기타 휴무)\]/);
   return m ? m[1] : '휴무';
 }
-function offIcon(o) { return ({ '연차': '🏖️', '휴가': '🌴', '오전 반차': '🌤️', '오후 반차': '🌙', '기타 휴무': '📌' })[offTypeOf(o)] || '🏖️'; }
+function offIcon(o) { return ({ '휴진일': '🔴', '연차': '🏖️', '휴가': '🌴', '오전 반차': '🌤️', '오후 반차': '🌙', '기타 휴무': '📌' })[offTypeOf(o)] || '🏖️'; }
+function isClinicClosed(ymd) { return state.daysOff.some(o => o.date === ymd && offTypeOf(o) === '휴진일'); }
+function clinicClosedTag(ymd) { return isClinicClosed(ymd) ? `<div class="clinic-closed-label" title="${esc(dayOffLabel(ymd))}">${esc(dayOffLabel(ymd))}</div>` : ''; }
 function dayOffIcon(ymd) { const o = state.daysOff.find(x => x.date === ymd); return o ? offIcon(o) : (state.weeklyOff.includes(dowOf(ymd)) ? '🏖️' : ''); }
 function isPartialOffRecord(o) { return ['오전 반차', '오후 반차'].includes(offTypeOf(o)); }
 function partialOffOf(ymd) { return state.daysOff.find(o => o.date === ymd && isPartialOffRecord(o)) || null; }
@@ -1499,9 +1505,10 @@ function renderDashMonth() {
       .concat(personalOf(d).map(ev => `<div class="dmt dmt-personal">🌷${ev.start_time ? esc(ev.start_time) + ' ' : ''}${esc(ev.title)}</div>`));
     const cls = 'dmcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
     let cellHtml = `<div class="dmnum">${Number(d.slice(8))}${off ? ' ' + dayOffIcon(d) : ''}</div>`;
+    cellHtml += clinicClosedTag(d);
     items.slice(0, 3).forEach(h => cellHtml += h);
     if (items.length > 3) cellHtml += `<div class="dmmore">+${items.length - 3}건</div>`;
-    html += `<div class="${cls}" data-d="${d}">${cellHtml}</div>`;
+    html += `<div class="${cls}${isClinicClosed(d) ? ' clinic-closed' : ''}" data-d="${d}">${cellHtml}</div>`;
     d = addDays(d, 1);
   }
   box.innerHTML = html;
@@ -1554,9 +1561,10 @@ function renderDash() {
     const ts = tasksOf(d).sort(weekTaskSort);
     const dn = ts.filter(t => t.done).length;
     const cell = document.createElement('div');
-    cell.className = 'cellm' + (d === today ? ' today' : '') + (isDayOff(d) ? ' off' : '');
+    cell.className = 'cellm' + (d === today ? ' today' : '') + (isDayOff(d) ? ' off' : '') + (isClinicClosed(d) ? ' clinic-closed' : '');
     let html = `<b>${DOW_KO[dowOf(d)]} ${Number(d.slice(8))}</b>`;
     html += `<span class="cnt">${isDayOff(d) ? `${dayOffIcon(d)} 휴무` : (ts.length ? `${dn}/${ts.length} 완료` : '·')}</span>`;
+    html += clinicClosedTag(d);
     meetingsOf(d).forEach(mm => { html += `<div class="ti ti-meet">🎙️ ${esc(mm.title)}</div>`; });
     sharedOf(d).forEach(ev => { html += `<div class="ti ti-shared">👥 ${esc(ev.title)}</div>`; });
     ts.slice(0, 6).forEach(t => {
@@ -1638,6 +1646,8 @@ function renderDay() {
   const isToday = curDate === todayStr();
   document.getElementById('dayTitle').textContent = fmtKo(curDate) + (isToday ? ' · 오늘' : '');
   const banner = document.getElementById('dayOffBanner');
+  document.getElementById('dayTitle').classList.toggle('clinic-closed', isClinicClosed(curDate));
+  banner.classList.toggle('clinic-closed', isClinicClosed(curDate));
   if (isDayOff(curDate)) {
     banner.textContent = `${dayOffIcon(curDate)} ${dayOffLabel(curDate)} — 일반 업무는 추가 시 다음 근무일로 이동합니다. 이 날짜에 두려면 '📌 날짜 고정'을 선택하세요.`;
     banner.classList.remove('hidden');
@@ -1709,10 +1719,10 @@ function renderWeek() {
     if (dowOf(d) === 0) continue; // 주간 계획에선 일요일 숨김 (월간 캘린더에는 표시)
     const col = document.createElement('div');
     const off = isDayOff(d);
-    col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
+    col.className = 'week-col' + (d === todayStr() ? ' today' : '') + (off ? ' off' : '') + (isClinicClosed(d) ? ' clinic-closed' : '');
     const ts = tasksOf(d).sort(weekTaskSort);
     col.innerHTML = `<h4><span>${DOW_KO[dowOf(d)]} <span class="d">${Number(d.slice(8))}일</span></span>
-      ${off ? `<span class="off-tag">${dayOffIcon(d)}</span>` : ''}</h4>`;
+      ${off ? `<span class="off-tag">${dayOffIcon(d)}</span>` : ''}</h4>${clinicClosedTag(d)}`;
     meetingsOf(d).forEach(mm => { const w = document.createElement('div'); w.className = 'wev wev-meet'; w.innerHTML = `${mm.time ? esc(mm.time) + ' ' : ''}🎙️ ${esc(mm.title)}`; w.onclick = () => openMeetingModal(mm.id); col.appendChild(w); });
     sharedOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-shared'; w.innerHTML = `${ev.time ? esc(ev.time) + ' ' : ''}👥 ${esc(ev.title)}`; w.onclick = () => openSharedEventModal(ev.id); col.appendChild(w); });
 personalOf(d).forEach(ev => { const w = document.createElement('div'); w.className = 'wev wev-personal'; w.innerHTML = `${ev.start_time ? esc(ev.start_time) + ' ' : ''}🌷 ${esc(ev.title)}`; w.onclick = () => openPersonalEventModal(ev.id); col.appendChild(w); });
@@ -1764,11 +1774,12 @@ function renderMonth() {
     const cell = document.createElement('div');
     const inMonth = d.slice(0, 7) === curMonth;
     const off = isDayOff(d);
-    cell.className = 'mcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '');
+    cell.className = 'mcell' + (inMonth ? '' : ' dim') + (d === todayStr() ? ' today' : '') + (off ? ' off' : '') + (isClinicClosed(d) ? ' clinic-closed' : '');
     const ts = tasksOf(d);
     // 반복 고정업무(매주/2주/매월) 예정 표시 — 아직 생성 안 된 도래분만(중복 방지)
     const rOcc = state.routines.filter(r => r.active && r.show_on_calendar !== false && routineOccursOn(r, d) && !ts.some(t => t.routine_id === r.id));
     let html = `<div class="dnum"><span>${Number(d.slice(8))}</span>${off ? `<span>${dayOffIcon(d)}</span>` : ''}</div>`;
+    html += clinicClosedTag(d);
     // 셀 상단: 회의(보라)·공동일정(초록) → 반복 → 실제 업무
     const mItems = meetingsOf(d).map(mm => `<div class="mt mt-meet">🎙️ ${mm.time ? esc(mm.time) + ' ' : ''}${esc(mm.title)}</div>`)
       .concat(sharedOf(d).map(ev => `<div class="mt mt-shared">👥 ${ev.time ? esc(ev.time) + ' ' : ''}${esc(ev.title)}</div>`))
@@ -2351,27 +2362,29 @@ function openOffModal() {
     <div class="off-item">
       <span>${offIcon(o)} ${fmtKo(o.date)}</span><span class="lbl">${esc(offLabelText(o))}</span>
       <button class="icon-btn" onclick="delOff('${o.id}')">✕</button>
-    </div>`).join('') || '<div class="muted">등록된 일회성 휴가가 없어요.</div>';
+    </div>`).join('') || '<div class="muted">등록된 휴가·휴진일이 없어요.</div>';
   openModal(`
-    <h3>🏖️ 휴무 · 연차 관리</h3>
+    <h3>🏖️ 휴가 · 휴진일 관리</h3>
     <label>매주 고정 휴무 요일 (누르면 켜짐/꺼짐)</label>
     <div class="dow-picks">${dowBtns}</div>
-    <label>일회성 휴가 등록</label>
+    <label>휴가 · 휴진일 등록</label>
+    <p class="muted">빠진 대체공휴일이나 내가 일하지 않는 날은 ‘휴진일 (빨간날)’로 직접 지정하세요. 내 일정에 빨간 날짜와 사유가 표시됩니다.</p>
     <div class="row">
       <input type="date" id="offDate" style="flex:1;min-width:140px">
       <select id="offType" style="width:auto;min-width:120px">
+        <option value="휴진일">🔴 휴진일 (빨간날)</option>
         <option value="연차">🏖️ 연차</option>
         <option value="휴가">🌴 휴가</option>
         <option value="오전 반차">🌤️ 오전 반차</option>
         <option value="오후 반차">🌙 오후 반차</option>
         <option value="기타 휴무">📌 기타</option>
       </select>
-      <input type="text" id="offLabel" placeholder="사유·메모 (선택)" style="flex:1;min-width:130px" onkeydown="if(event.key==='Enter')addOff()">
+      <input type="text" id="offLabel" placeholder="예: 대체공휴일, 병원 휴진 (선택)" style="flex:1;min-width:130px" onkeydown="if(event.key==='Enter')addOff()">
       <button class="btn sm" onclick="addOff()">추가</button>
     </div>
-    <label>등록된 일회성 휴가</label>
+    <label>등록된 휴가 · 휴진일</label>
     <div class="off-list">${items}</div>
-    <p class="muted" style="margin-bottom:0">연차·휴가는 하루 전체 휴무로 처리되어 업무가 다음 근무일로 이동합니다. 반차는 일정만 표시되고 업무는 정상 배정됩니다.</p>
+    <p class="muted" style="margin-bottom:0">휴진일·연차·휴가는 하루 전체 휴무입니다. 일반 업무를 새로 추가하면 다음 근무일에 배정되며, 이미 등록된 업무는 그대로 유지됩니다. 반차는 업무가 정상 배정됩니다. 휴진일을 해제하려면 목록의 ✕를 누르세요.</p>
     <div class="foot"><button class="btn" onclick="closeModal()">닫기</button></div>`);
 }
 async function toggleWeeklyOff(dow) {
@@ -2391,12 +2404,12 @@ async function addOff() {
   const note = document.getElementById('offLabel').value.trim();
   const label = `[${type}]${note ? ' ' + note : ''}`;
   if (!date) return toast('날짜를 선택하세요.');
-  if (state.daysOff.some(o => o.date === date)) return toast('이 날짜에는 이미 등록된 휴가가 있어요.');
+  if (state.daysOff.some(o => o.date === date)) return toast('이미 휴가·휴진일이 등록된 날짜예요. 기존 항목을 삭제한 뒤 다시 등록하세요.');
   const { data, error } = await sb.from('days_off')
     .insert({ user_id: user.id, date, label }).select().single();
   if (error) return toast('추가 실패: ' + error.message);
   state.daysOff.push(data); state.daysOff.sort((a, b) => a.date < b.date ? -1 : 1);
-  openOffModal(); renderAll(); toast(`${type}를 등록했어요.`);
+  openOffModal(); renderAll(); toast(`${type} 등록을 완료했어요.`);
 }
 async function delOff(id) {
   const { error } = await sb.from('days_off').delete().eq('id', id);
