@@ -1,0 +1,3 @@
+[functions.yeba-radar-cloud]
+# GitHub OIDC is checked by the handler; anonymous requests still receive 401.
+verify_jwt = false
