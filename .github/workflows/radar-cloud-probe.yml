@@ -1,0 +1,41 @@
+name: Radar cloud access probe
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - cloud/**
+      - .github/workflows/radar-cloud-probe.yml
+permissions:
+  contents: read
+concurrency:
+  group: radar-cloud-probe
+  cancel-in-progress: false
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Inspect fresh signed-out browser pages
+        run: xvfb-run --auto-servernum npm run probe
+        env:
+          HEADED: 'true'
+      - name: Save access evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-cloud-access-${{ github.run_id }}
+          path: cloud/output/
+          retention-days: 3
+          if-no-files-found: warn

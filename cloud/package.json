@@ -1,0 +1,7 @@
+{
+  "name": "yeba-cloud-collection-probe",
+  "private": true,
+  "type": "module",
+  "scripts": { "probe": "node probe.mjs" },
+  "dependencies": { "playwright": "1.63.0" }
+}
