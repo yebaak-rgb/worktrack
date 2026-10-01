@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile, appendFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-const question = '부산에서 교정치과 잘하는 곳 추천해줘. 그리고 이유도 알려줘.';
+const question = '서면에서 교정치료할 건데 치과 추천해줘. 그리고 이유도 알려줘.';
 const output = new URL('./output/', import.meta.url);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: process.env.HEADED !== 'true' });
@@ -44,8 +44,20 @@ try {
         const visibleBody = await page.locator('body').innerText();
         if (/채팅이 예기치 않게 중지|Something went wrong|일시적으로 사용할 수 없/i.test(visibleBody)) throw new Error('응답 생성 오류가 표시됐습니다.');
         const answer = page.locator(provider.answer).last();
-        if (!await answer.isVisible().catch(() => false)) continue;
-        const text = await answer.innerText();
+        let text = await answer.isVisible().catch(() => false) ? await answer.innerText() : '';
+        // Current ChatGPT guest pages can omit data-message-author-role.
+        // The body innerText is rendered text; never read hidden HTML or app state.
+        if (!text && provider.name === 'ChatGPT') {
+          const marker = 'ChatGPT의 말:';
+          const start = visibleBody.lastIndexOf(marker);
+          if (start >= 0) {
+            text = visibleBody.slice(start + marker.length);
+            const end = text.lastIndexOf('ChatGPT와 채팅');
+            if (end >= 0) text = text.slice(0, end);
+            text = text.trim();
+          }
+        }
+        if (!text) continue;
         if (text !== previous) { previous = text; stableSince = Date.now(); }
         const generating = await page.getByRole('button', { name: /Stop generating|Stop response|응답 중지|생성 중지|답변 중지/i }).first().isVisible().catch(() => false);
         if (text.trim().length > 40 && !generating && Date.now() - stableSince >= 12000) {
@@ -60,6 +72,7 @@ try {
     } finally {
       result.url = page.url();
       await writeFile(new URL(provider.name + '-question.txt', output), await page.locator('body').innerText().catch(() => '화면 읽기 실패'));
+      await writeFile(new URL(provider.name + '-structure.txt', output), await page.locator('body').ariaSnapshot().catch(() => '구조 읽기 실패'));
       await page.screenshot({ path: fileURLToPath(new URL(provider.name + '-question.png', output)), fullPage: true, timeout: 15000 }).catch(() => {});
       await context.close();
     }
