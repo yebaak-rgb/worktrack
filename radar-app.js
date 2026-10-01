@@ -1,15 +1,14 @@
-import {storageRequest} from './radar-storage.js?v=20260915-classification';
+import {storageRequest} from './radar-storage.js?v=20261001-two-ai';
 import {hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
-import {isOurRecommendation} from './radar-analytics.js?v=20260917-monthly';
-import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20260917-monthly';
+import {isOurRecommendation} from './radar-analytics.js?v=20261001-two-ai';
+import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261001-two-ai';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
 const DATA_VERSION = 6;
 const providers = [
   { id:'OpenAI', name:'ChatGPT', icon:'G', cls:'chatgpt' },
-  { id:'Gemini', name:'Gemini', icon:'✦', cls:'gemini' },
-  { id:'Perplexity', name:'Perplexity', icon:'P', cls:'perplexity' }
+  { id:'Gemini', name:'Gemini', icon:'✦', cls:'gemini' }
 ];
 const defaultQuestions = [
   '부산에서 교정치과 잘하는 곳 추천해줘. 그리고 이유도 알려줘.',
@@ -50,7 +49,7 @@ async function cloudAPI(path,body){return storageRequest(path,body);}
 function applyCloud(data,forceSettings=false){
   if(data.storage!=='cloud'||!Array.isArray(data.records))throw new Error('사이트에서 올바른 기록을 받지 못했습니다.');
   if(!settingsDirty||forceSettings){Object.assign(state,data.settings);settingsDirty=false;}
-  state.records=data.records;state.lastRun=data.lastRun;cloudReady=true;
+  state.records=data.records.filter(r=>providers.some(p=>p.name===r.ai));state.lastRun=data.lastRun;cloudReady=true;
   if(!settingsDirty)renderAll();else{renderQueue();renderResponses();renderRecords();renderOverview();}
 }
 function cloudSuccess(){cloudStatus('사이트 저장소 연결됨 · '+state.records.length+'개 기록 · 다른 PC에서도 같은 업무 계정으로 확인','ready');}
@@ -172,10 +171,10 @@ function renderRecords() {
 }
 function hydrateSettings() {
   $('#autoRun').checked=state.autoRun; $('#scheduleTime').value=state.scheduleTime; $('#targetName').value=state.targetName; $('#targetAliases').value=state.aliases;
-  $('#keyOpenAI').value=state.keys.OpenAI||''; $('#keyGemini').value=state.keys.Gemini||''; $('#keyPerplexity').value=state.keys.Perplexity||'';
+  $('#keyOpenAI').value=state.keys.OpenAI||''; $('#keyGemini').value=state.keys.Gemini||'';
   updateConnectionCount();
 }
-function updateConnectionCount(){const count=['keyOpenAI','keyGemini','keyPerplexity'].filter(id=>$('#'+id).value.trim()).length;$('#connectionCount').textContent=`${count} / ${providers.length} 연결`;}
+function updateConnectionCount(){const count=['keyOpenAI','keyGemini'].filter(id=>$('#'+id).value.trim()).length;$('#connectionCount').textContent=`${count} / ${providers.length} 연결`;}
 $$('.api-grid input').forEach(input=>input.addEventListener('input',updateConnectionCount));
 $('#addQuestion').addEventListener('click',()=>{settingsDirty=true;state.questions.push('새 조사 질문을 입력하세요.');renderQuestions();$$('#settingsQuestions input').at(-1).focus();});
 $('#view-settings').addEventListener('input',()=>{settingsDirty=true;});
@@ -185,7 +184,7 @@ $('#saveSettings').addEventListener('click',async()=>{
   cloudBusy=true;cloudStatus('조사 설정을 사이트에 저장하는 중');
   try{
     const data=await cloudAPI('/api/settings',next);
-    state.keys={OpenAI:$('#keyOpenAI').value.trim(),Gemini:$('#keyGemini').value.trim(),Perplexity:$('#keyPerplexity').value.trim()};storeDeviceKeys();
+    state.keys={OpenAI:$('#keyOpenAI').value.trim(),Gemini:$('#keyGemini').value.trim()};storeDeviceKeys();
     applyCloud(data,true);toast('조사 질문과 설정을 사이트에 저장했습니다.');
   }catch(error){cloudStatus(error.message,'error');toast(error.message);}
   finally{cloudBusy=false;$('#retryCloud').disabled=false;if($('#storageNotice').dataset.state!=='error')cloudSuccess();}
@@ -203,7 +202,7 @@ async function queryProvider(provider, question) {
   if (!key) throw new Error(`${provider.name} API 키가 연결되지 않았습니다.`);
   if(provider.id==='OpenAI') { const r=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'gpt-4.1-mini',input:question})}); if(!r.ok)throw new Error(`OpenAI ${r.status}`);const j=await r.json();return j.output_text||j.output?.flatMap(x=>x.content||[]).map(x=>x.text||'').join(' ')||''; }
   if(provider.id==='Gemini') { const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(key)}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:question}]}]})});if(!r.ok)throw new Error(`Gemini ${r.status}`);const j=await r.json();return j.candidates?.[0]?.content?.parts?.map(x=>x.text).join(' ')||''; }
-  const r=await fetch('https://api.perplexity.ai/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},body:JSON.stringify({model:'sonar',messages:[{role:'user',content:question}]})});if(!r.ok)throw new Error(`Perplexity ${r.status}`);const j=await r.json();return j.choices?.[0]?.message?.content||'';
+  throw new Error('지원하지 않는 AI입니다.');
 }
 function openInvestigationRequest() {
   openView('run');

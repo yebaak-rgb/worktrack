@@ -53,7 +53,7 @@
         <div><p class="eyebrow">YEBA · AI VISIBILITY INTELLIGENCE</p><h1>추천 현황을 읽고,<br class="mobile-break"> 다음 행동을 정하세요.</h1><p>실제 응답으로 보는 월간 경쟁 현황과 실행 인사이트</p></div>
         <div class="report-filter">
           <label>분석 월<div class="month-control"><button type="button" id="previousMonth" aria-label="이전 달">‹</button><input type="month" id="reportMonth" aria-label="분석 월"><button type="button" id="nextMonth" aria-label="다음 달">›</button></div></label>
-          <label>AI<select id="reportAI"><option value="all">전체 AI</option><option>ChatGPT</option><option>Gemini</option><option>Perplexity</option></select></label>
+          <label>AI<select id="reportAI"><option value="all">전체 AI</option><option>ChatGPT</option><option>Gemini</option></select></label>
           <label>수집 방식<select id="reportMethod"><option value="web">비로그인 웹</option><option value="api">API</option><option value="all">전체 방식</option></select></label>
         </div>
       </header>
@@ -83,7 +83,7 @@
         <div class="section-title"><div><p class="eyebrow">MONTHLY LEADERBOARD</p><h2>월별 전체 치과 순위</h2><p>상위 몇 곳만이 아닌, 선택한 월에 추천된 모든 치과를 확인하세요.</p></div></div>
         <article class="panel ranking-panel">
           <div class="panel-head"><p id="rankingSummary"></p><label class="ranking-search">치과명 검색<input type="search" id="rankingSearch" placeholder="치과 이름 또는 원래 표기"></label></div>
-          <div class="table-wrap" tabindex="0" aria-label="월별 전체 순위 표. 좁은 화면에서는 좌우로 스크롤하세요."><table class="ranking-table"><thead><tr><th scope="col">순위</th><th scope="col">치과명</th><th scope="col">추천 답변</th><th scope="col">추천률</th><th scope="col">전월 대비</th><th scope="col">ChatGPT</th><th scope="col">Gemini</th><th scope="col">Perplexity</th><th scope="col">근거</th></tr></thead><tbody id="monthlyRankingBody"></tbody></table></div>
+          <div class="table-wrap" tabindex="0" aria-label="월별 전체 순위 표. 좁은 화면에서는 좌우로 스크롤하세요."><table class="ranking-table"><thead><tr><th scope="col">순위</th><th scope="col">치과명</th><th scope="col">추천 답변</th><th scope="col">추천률</th><th scope="col">전월 대비</th><th scope="col">ChatGPT</th><th scope="col">Gemini</th><th scope="col">근거</th></tr></thead><tbody id="monthlyRankingBody"></tbody></table></div>
           <p class="chart-note">AI별 열은 추천 답변 수입니다. 전월 대비는 순위 변화와 추천률 %p 변화이며, 전월에 실제 응답이 없으면 비교하지 않습니다. 진행 중인 달은 월 누적과 전월 전체의 단순 비교입니다.</p>
         </article>
         <details class="panel methodology"><summary>집계 기준 · 병원 이름 통합 확인</summary><p>각 답변의 검토된 추천 치과 목록을 기준으로, 한 답변에서 같은 병원은 한 번만 셉니다. 예바의 설정된 별칭은 브랜드 단위로 통합합니다. 다른 병원은 공백과 정식 명칭의 일부 접미사만 정리하고 지점 표기는 유지합니다.</p><div id="aliasSummary"></div><p>순위는 추천 답변 수 내림차순이며 동률은 공동 순위(1, 1, 3)입니다. 추천률의 합은 100%를 넘을 수 있습니다. 이는 전체 치과 시장점유율이나 의료 서비스 평가가 아닙니다. 저장 원문과 추천 분류는 변경하지 않습니다.</p></details>
@@ -98,7 +98,7 @@
 
       <section class="view" id="view-run" aria-labelledby="runTitle">
         <div class="section-title">
-          <div><p class="eyebrow">DAILY CHECK</p><h2 id="runTitle">오늘의 조사</h2><p>3개 AI에 같은 질문을 보내 추천 결과를 비교합니다.</p></div>
+          <div><p class="eyebrow">DAILY CHECK</p><h2 id="runTitle">오늘의 조사</h2><p>2개 AI에 같은 질문을 보내 추천 결과를 비교합니다.</p></div>
           <button class="primary" id="startRun" data-action="request-investigation">비로그인 조사 요청 <span>↗</span></button>
         </div>
         <p class="collection-help">지금 조사하려면 요청문을 복사해 이 사이트를 만든 Codex 대화에 보내주세요. 이 버튼만으로 조사가 시작되지는 않습니다.</p>
@@ -129,7 +129,7 @@
           <fieldset id="manualFields">
             <div class="manual-meta">
               <label>조사 날짜<input type="date" id="manualDate" required></label>
-              <label>조사한 AI<select id="manualAI" required><option>ChatGPT</option><option>Gemini</option><option>Perplexity</option></select></label>
+              <label>조사한 AI<select id="manualAI" required><option>ChatGPT</option><option>Gemini</option></select></label>
               <label>수집 상태<select id="manualStatus"><option value="완료">답변 수집</option><option value="실패">미수집 사유 기록</option></select></label>
             </div>
             <label>조사 질문<select id="manualQuestion" required aria-describedby="manualQuestionText"></select></label>
@@ -160,7 +160,7 @@
         </div>
         <div class="filter-bar panel">
           <label>기간<select id="historyRange"><option value="30">최근 30일</option><option value="90">최근 3개월</option><option value="all">전체</option></select></label>
-          <label>AI<select id="historyAI"><option value="all">전체 AI</option><option>ChatGPT</option><option>Gemini</option><option>Perplexity</option></select></label>
+          <label>AI<select id="historyAI"><option value="all">전체 AI</option><option>ChatGPT</option><option>Gemini</option></select></label>
           <label>질문<select id="historyQuestion"><option value="all">전체 질문</option></select></label>
           <button class="text-button" id="resetFilters">필터 초기화</button>
         </div>
@@ -193,11 +193,10 @@
             <div id="settingsQuestions" class="editable-questions"></div>
           </article>
           <article class="panel settings-card wide">
-            <div class="settings-title"><span class="setting-icon">⌘</span><div><h3>API 연결 (선택 사항)</h3><p>비로그인 웹 조사에는 필요하지 않습니다. API 응답은 웹 응답과 다를 수 있습니다.</p></div><span class="status-pill neutral" id="connectionCount">0 / 3 연결</span></div>
+            <div class="settings-title"><span class="setting-icon">⌘</span><div><h3>API 연결 (선택 사항)</h3><p>비로그인 웹 조사에는 필요하지 않습니다. API 응답은 웹 응답과 다를 수 있습니다.</p></div><span class="status-pill neutral" id="connectionCount">0 / 2 연결</span></div>
             <div class="api-grid">
               <label><span><i class="ai-icon chatgpt">G</i>OpenAI</span><input type="password" id="keyOpenAI" placeholder="sk-..." autocomplete="off"></label>
               <label><span><i class="ai-icon gemini">✦</i>Google Gemini</span><input type="password" id="keyGemini" placeholder="AIza..." autocomplete="off"></label>
-              <label><span><i class="ai-icon perplexity">P</i>Perplexity</span><input type="password" id="keyPerplexity" placeholder="pplx-..." autocomplete="off"></label>
             </div>
             <div class="setting-notice"><i></i><span><strong>API 별도 실행</strong>연결한 키를 설정 저장한 뒤 실행합니다. 비로그인 조사를 원하면 위의 조사 요청 버튼을 사용하세요.</span></div>
             <button class="outline" id="startApiRun">저장된 API 키로 별도 조사</button>
@@ -224,6 +223,6 @@
     <div class="dialog-header"><h2 id="evidenceTitle">근거 응답</h2><button type="button" class="dialog-close" id="closeEvidence" aria-label="근거 응답 닫기">×</button></div>
     <p id="evidenceNote"></p><div id="evidenceBody"></div>
   </dialog>
-  <script type="module" src="./radar-app.js?v=20260917-monthly"></script>
+  <script type="module" src="./radar-app.js?v=20261001-two-ai"></script>
 </body>
 </html>

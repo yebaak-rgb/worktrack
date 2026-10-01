@@ -1,6 +1,6 @@
 // Shares the existing worktrack session; no admin key, new login, or browser-only record store.
 import {hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
-const AI = new Set(['ChatGPT','Gemini','Perplexity']);
+const AI = new Set(['ChatGPT','Gemini']);
 const DEFAULT_SETTINGS = {autoRun:false,scheduleTime:'09:30',targetName:'예바치과교정과치과의원',aliases:'예바, YEBA, 예바치과',questions:[
   '부산에서 교정치과 잘하는 곳 추천해줘. 그리고 이유도 알려줘.',
   '서면에서 교정치료할 건데 치과 추천해줘. 그리고 이유도 알려줘.',
@@ -32,7 +32,7 @@ async function result(query){const response=await query.abortSignal(AbortSignal.
 function clientRow(r){return {id:r.id,date:r.date,ai:r.ai,question:r.question,answer:r.answer,hospitals:r.hospitals,ourMention:r.our_mention,status:r.status,sourceUrl:r.source_url,collectionMethod:r.collection_method,savedAt:r.saved_at,demo:false};}
 async function readState(db,owner){
   const records=[];
-  for(let offset=0;;offset+=500){const page=await result(db.from('yeba_radar_records').select('*').eq('user_id',owner).order('date').order('saved_at').order('id').range(offset,offset+499));records.push(...page.map(clientRow));if(page.length<500)break;}
+  for(let offset=0;;offset+=500){const page=await result(db.from('yeba_radar_records').select('*').eq('user_id',owner).order('date').order('saved_at').order('id').range(offset,offset+499));records.push(...page.filter(r=>AI.has(r.ai)).map(clientRow));if(page.length<500)break;}
   const setting=await result(db.from('yeba_radar_settings').select('body').eq('user_id',owner).maybeSingle());
   return {storage:'cloud',storage_provider:'worktrack-supabase',settings:setting?.body||DEFAULT_SETTINGS,records,lastRun:records.filter(r=>r.status==='완료').at(-1)?.date||null};
 }

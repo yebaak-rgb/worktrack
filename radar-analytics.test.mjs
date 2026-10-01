@@ -19,7 +19,7 @@ test('failure excluded from denominator; no record is not zero',()=>{
  assert.equal(report([]).rate,null);assert.equal(report([]).rank,undefined);assert.equal(report([]).delta,null);
 });
 test('default web filter excludes API and unknown collection methods',()=>{
- const rows=[row(),row({ai:'Gemini',collectionMethod:'API'}),row({ai:'Perplexity',collectionMethod:undefined})];
+ const rows=[row(),row({ai:'Gemini',collectionMethod:'API'}),row({ai:'Gemini',question:'unknown method',collectionMethod:undefined})];
  assert.equal(report(rows).complete.length,1);assert.equal(report(rows,{method:'all'}).complete.length,3);assert.equal(report(rows,{method:'api'}).complete.length,1);
 });
 test('date/AI/question update wins; invalid, demo, future and Claude are excluded',()=>{
@@ -43,9 +43,14 @@ test('provider/question filters and dated daily series use real observations',()
  assert.equal(report(m.rows,{ai:'Gemini'}).rate,0);
 });
 test('insights cite source rows, distinguish proposals and preserve raw answers',()=>{
- const rows=[row({ourMention:false,hospitals:['비교치과']}),row({ai:'Perplexity',status:'실패',answer:'로그인 요구',ourMention:false,hospitals:[]})];
+ const rows=[row({ourMention:false,hospitals:['비교치과']}),row({ai:'Gemini',status:'실패',answer:'로그인 요구',ourMention:false,hospitals:[]})];
  const actions=buildInsights(report(rows),settings);
  assert.equal(actions[0].type,'collection');assert.equal(actions.find(i=>i.type==='content').records[0].answer,rows[0].answer);
  assert(actions.find(i=>i.type==='theme').fact.includes('추천 원인 분석은 아닙니다'));
  assert.equal(buildInsights(report([]),settings).at(-1).priority,'자료 필요');
+});
+
+test('retired provider records never affect totals, failures or rankings',()=>{
+ const m=report([row(),row({ai:'Perplexity',hospitals:['은퇴치과'],ourMention:false}),row({ai:'Perplexity',question:'failed',status:'실패'})],{method:'all'});
+ assert.equal(m.complete.length,1);assert.equal(m.failed.length,0);assert.equal(m.rate,100);assert.deepEqual(m.provider.map(p=>p.name),['ChatGPT','Gemini']);assert(!m.ranks.some(r=>r.name==='은퇴치과'));
 });

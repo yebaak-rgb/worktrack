@@ -1,6 +1,6 @@
 import {targetInText, hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
 
-export const AIS = ['ChatGPT', 'Gemini', 'Perplexity'];
+export const AIS = ['ChatGPT', 'Gemini'];
 export const percent = (n, d) => d ? n / d * 100 : null;
 export const koreaDate = (date = new Date()) => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Seoul'}).format(date);
 export function shiftMonth(month, offset) {

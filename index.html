@@ -1885,7 +1885,7 @@ function switchView(v) {
   // 사이트 공유 화면을 벗어나면 비밀번호 내용을 DOM에서 비워 잠금 유지
   if (v !== 'sites') { const sg = document.getElementById('sitesGrid'); if (sg) sg.innerHTML = ''; }
   document.getElementById('app').classList.toggle('radar-wide', v === 'radar');
-  if (v === 'radar') { const frame = document.getElementById('radarFrame'); if (!frame.getAttribute('src')) frame.src = './radar.html?v=20260919-layout'; }
+  if (v === 'radar') { const frame = document.getElementById('radarFrame'); if (!frame.getAttribute('src')) frame.src = './radar.html?v=20261001-two-ai'; }
   if (v === 'radar' || location.hash === '#radar') history.replaceState(null, '', v === 'radar' ? '#radar' : location.pathname + location.search);
   renderAll();
 }
@@ -4057,7 +4057,7 @@ function registerWorktrackRadarTools() {
     });
     return frame.contentWindow.yebaRadarBridge[method](input);
   }
-  const item = {type:'object',properties:{ai:{type:'string',enum:['ChatGPT','Gemini','Perplexity']},question:{type:'string',minLength:1},answer:{type:'string',minLength:1},hospitals:{type:'array',items:{type:'string'},maxItems:20},our_mention:{type:'boolean'},status:{type:'string',enum:['완료','실패']},source_url:{type:'string'}},required:['ai','question','answer','hospitals','our_mention','status'],additionalProperties:false};
+  const item = {type:'object',properties:{ai:{type:'string',enum:['ChatGPT','Gemini']},question:{type:'string',minLength:1},answer:{type:'string',minLength:1},hospitals:{type:'array',items:{type:'string'},maxItems:20},our_mention:{type:'boolean'},status:{type:'string',enum:['완료','실패']},source_url:{type:'string'}},required:['ai','question','answer','hospitals','our_mention','status'],additionalProperties:false};
   const tools = [
     {name:'read_yeba_share_summary',title:'예바 AI 점유율 요약',description:'현재 로그인한 업무 계정의 AI 조사 질문, 서버 저장 건수와 수집·미수집 건수를 읽습니다.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:input=>call('read',input)},
     {name:'save_yeba_recommendation_results',title:'예바 AI 조사 결과 저장',description:'현재 로그인한 업무 계정의 Supabase 저장소에 실제 답변과 미수집 사유를 저장합니다. 같은 날짜·AI·질문은 갱신합니다.',inputSchema:{type:'object',properties:{date:{type:'string'},results:{type:'array',items:item,minItems:1,maxItems:40}},required:['date','results'],additionalProperties:false},annotations:{readOnlyHint:false,idempotentHint:true,untrustedContentHint:true},execute:input=>call('save',input)},

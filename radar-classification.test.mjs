@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {validateRecord} from './radar-storage.js';
 import {hasRecommendationEvidence} from './radar-classification.js';
 
-const record={ai:'Perplexity',question:'부산에서 교정치과 잘하는 곳 추천해줘. 그리고 이유도 알려줘.',answer:'디자인치과교정과치과의원을 추천합니다.',hospitals:['디자인치과교정과치과의원'],our_mention:true,status:'완료',source_url:'https://www.perplexity.ai/'};
+const record={ai:'ChatGPT',question:'부산에서 교정치과 잘하는 곳 추천해줘. 그리고 이유도 알려줘.',answer:'디자인치과교정과치과의원을 추천합니다.',hospitals:['디자인치과교정과치과의원'],our_mention:true,status:'완료',source_url:'https://chatgpt.com/'};
 test('stale YES cannot be saved for a competitor-only answer',()=>{
   assert.throws(()=>validateRecord(record,'2026-09-15','수동 입력 · 비로그인 웹'),/원문과 추천 치과 목록/);
   const saved=validateRecord({...record,our_mention:false},'2026-09-15','수동 입력 · 비로그인 웹');
