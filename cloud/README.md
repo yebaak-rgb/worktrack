@@ -2,6 +2,8 @@
 
 GitHub Actions의 Linux 브라우저가 매일 한국시간 오전 9:30에 ChatGPT·Gemini를 비로그인으로 조사하고, 기존 Supabase의 본인 AI 기록에 저장합니다. 사용자 PC와 Codex 앱은 실행에 필요하지 않습니다. GitHub 예약은 혼잡 시 지연될 수 있습니다.
 
+현재 저장소는 공개 저장소입니다. GitHub 정책상 저장소 활동이 60일간 없으면 예약이 자동 중지될 수 있으므로 장기 운영 시 Actions의 활성 상태를 확인해야 합니다. 재활성화는 저장소의 Actions 화면에서 가능합니다. 근거: https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule
+
 ## 실행
 
 - 운영: `.github/workflows/radar-cloud-collect.yml` (`Radar cloud daily collection`). 예약 및 수동 실행을 지원합니다.
