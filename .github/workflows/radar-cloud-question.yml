@@ -1,0 +1,41 @@
+name: Radar cloud question test
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - cloud/question-test.mjs
+      - .github/workflows/radar-cloud-question.yml
+permissions:
+  contents: read
+concurrency:
+  group: radar-cloud-questions
+  cancel-in-progress: false
+jobs:
+  test-question:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        working-directory: cloud
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Send one unchanged question per AI
+        run: xvfb-run --auto-servernum node question-test.mjs
+        env:
+          HEADED: 'true'
+      - name: Save response evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: radar-cloud-question-${{ github.run_id }}
+          path: cloud/output/
+          retention-days: 3
+          if-no-files-found: warn
