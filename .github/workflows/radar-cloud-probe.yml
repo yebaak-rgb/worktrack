@@ -1,13 +1,6 @@
 name: Radar cloud access probe
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - cloud/probe.mjs
-      - cloud/package.json
-      - cloud/package-lock.json
-      - .github/workflows/radar-cloud-probe.yml
 permissions:
   contents: read
 concurrency:

@@ -30,7 +30,7 @@
         <button class="nav-item" data-view="settings"><span>⚙</span>자동화 설정</button>
       </nav>
       <div class="sidebar-foot">
-        <div class="mini-status"><i></i><span>자동 조사 켜짐<small>매일 오전 9:30</small></span></div>
+        <div class="mini-status"><i></i><span>클라우드 자동 조사<small>매일 오전 9:30</small></span></div>
         <button class="ghost-light" data-action="export">데이터 백업</button>
       </div>
     </aside>
@@ -101,11 +101,11 @@
           <div><p class="eyebrow">DAILY CHECK</p><h2 id="runTitle">오늘의 조사</h2><p>2개 AI에 같은 질문을 보내 추천 결과를 비교합니다.</p></div>
           <button class="primary" id="startRun" data-action="request-investigation">비로그인 조사 요청 <span>↗</span></button>
         </div>
-        <p class="collection-help">지금 조사하려면 요청문을 복사해 이 사이트를 만든 Codex 대화에 보내주세요. 이 버튼만으로 조사가 시작되지는 않습니다.</p>
+        <p class="collection-help">정기 조사는 클라우드에서 매일 오전 9:30에 실행됩니다. 추가 조사가 필요하면 요청문을 복사해 Codex 대화에 보내주세요.</p>
         <article class="run-summary panel">
           <div class="run-gauge"><strong id="runPercent">0%</strong><span>조사 진행률</span></div>
           <div class="run-copy"><span class="status-pill neutral" id="runStatus">대기</span><h3 id="runHeadline">오늘 첫 조사를 시작해 주세요.</h3><p id="runDescription">비로그인 AI 웹페이지의 실제 응답을 수집합니다.</p></div>
-          <div class="run-meta"><span>자동 조사 예약</span><strong id="nextRunText">매일 오전 9:30</strong><small>내장 브라우저 · 비로그인</small></div>
+          <div class="run-meta"><span>자동 조사 예약</span><strong id="nextRunText">매일 오전 9:30</strong><small>클라우드 · 비로그인 · PC 종료 중에도 실행</small></div>
         </article>
         <div class="run-layout">
           <article class="panel question-panel">
@@ -176,12 +176,12 @@
       </section>
 
       <section class="view" id="view-settings" aria-labelledby="settingsTitle">
-        <div class="section-title"><div><p class="eyebrow">AUTOMATION</p><h2 id="settingsTitle">자동화 설정</h2><p>한 번 설정하면 매일 아침 페이지를 열 때 조사 여부를 자동 확인합니다.</p></div><button class="primary" id="saveSettings">설정 저장</button></div>
+        <div class="section-title"><div><p class="eyebrow">AUTOMATION</p><h2 id="settingsTitle">자동화 설정</h2><p>클라우드 정기 조사와 선택적인 API 실행 설정을 확인합니다.</p></div><button class="primary" id="saveSettings">설정 저장</button></div>
         <div class="settings-grid">
           <article class="panel settings-card">
-            <div class="settings-title"><span class="setting-icon">◴</span><div><h3>아침 자동 조사</h3><p>지정 시각 이후 첫 방문에 미완료 조사를 자동 시작합니다.</p></div><label class="switch"><input type="checkbox" id="autoRun" checked><span></span></label></div>
-            <div class="field-row"><label>실행 시각<input type="time" id="scheduleTime" value="09:30"></label><label>기준 시간대<select id="timezone"><option value="Asia/Seoul">대한민국 (서울)</option></select></label></div>
-            <div class="setting-notice"><i></i><span><strong>비로그인 웹 조사 예약: 매일 오전 9:30</strong>내장 브라우저에서 수집합니다. 예약 변경은 이 대화에서 요청해 주세요. 이 페이지의 설정은 API 연결 시 첫 방문 자동 조사에 적용됩니다.</span></div>
+            <div class="settings-title"><span class="setting-icon">◴</span><div><h3>이 브라우저의 API 자동 실행</h3><p>API 키가 연결된 경우, 지정 시각 이후 첫 방문에 실행합니다.</p></div><label class="switch"><input type="checkbox" id="autoRun" checked><span></span></label></div>
+            <div class="field-row"><label>API 실행 시각<input type="time" id="scheduleTime" value="09:30"></label><label>기준 시간대<select id="timezone"><option value="Asia/Seoul">대한민국 (서울)</option></select></label></div>
+            <div class="setting-notice"><i></i><span><strong>클라우드 자동 조사: 매일 오전 9:30 (한국시간)</strong>PC와 Codex를 꺼도 ChatGPT·Gemini 답변을 수집해 저장합니다. 실행이 지연되거나 AI 접근 제한으로 미수집될 수 있습니다. 위 API 스위치와 시각은 클라우드 예약을 변경하지 않습니다.</span></div>
           </article>
           <article class="panel settings-card">
             <div class="settings-title"><span class="setting-icon">◎</span><div><h3>추적 대상</h3><p>이 이름과 별칭이 포함되면 예바치과로 집계합니다.</p></div></div>
@@ -216,7 +216,7 @@
     <label for="investigationPrompt">현재 설정한 질문으로 만든 요청문</label>
     <textarea id="investigationPrompt" readonly rows="8"></textarea>
     <button type="button" class="primary" id="copyInvestigationPrompt">요청문 복사</button>
-    <p class="dialog-footnote">사이트에서 Codex를 직접 실행하는 연결은 없습니다. 매일 오전 9:30 예약은 별도이며, 복사만으로 새 조사가 접수되지는 않습니다.</p>
+    <p class="dialog-footnote">정기 조사는 클라우드에서 매일 오전 9:30에 실행됩니다. 이 요청문은 추가 수동 조사용이며, 복사만으로 새 조사가 시작되지는 않습니다.</p>
   </dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <dialog id="evidenceDialog" class="evidence-dialog" aria-labelledby="evidenceTitle">

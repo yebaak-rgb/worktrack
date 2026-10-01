@@ -1,11 +1,6 @@
 name: Radar cloud question test
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - cloud/question-test.mjs
-      - .github/workflows/radar-cloud-question.yml
 permissions:
   contents: read
 concurrency:

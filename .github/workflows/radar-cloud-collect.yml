@@ -1,6 +1,9 @@
 name: Radar cloud daily collection
 on:
   workflow_dispatch:
+  schedule:
+    # 00:30 UTC = 09:30 Asia/Seoul; GitHub may start scheduled jobs late.
+    - cron: '30 0 * * *'
 permissions:
   contents: read
   id-token: write
