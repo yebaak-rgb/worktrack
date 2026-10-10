@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./radar-styles.css" />
+  <link rel="stylesheet" href="./radar-improvements.css?v=20261010" />
   <link rel="stylesheet" href="./radar-monthly.css?v=20260919-layout" />
 </head>
 <body>
@@ -24,6 +25,7 @@
         <button class="nav-item is-active" data-view="overview"><span>⌁</span>성과 대시보드</button>
         <button class="nav-item" data-view="ranking"><span>≡</span>월별 전체 순위</button>
         <button class="nav-item" data-view="insights"><span>◇</span>개선 인사이트</button>
+        <button class="nav-item" data-view="improvements"><span>☑</span>개선항목 관리</button>
         <button class="nav-item" data-view="run"><span>↗</span>조사 실행</button>
         <button class="nav-item" data-view="manual"><span>＋</span>원문 직접 입력</button>
         <button class="nav-item" data-view="history"><span>▦</span>기록 분석</button>
@@ -96,7 +98,8 @@
         <div id="insightCards" class="insight-cards"></div>
       </section>
 
-      <section class="view" id="view-run" aria-labelledby="runTitle">
+      <section class="view" id="view-improvements"><div class="section-title"><div><p class="eyebrow">AEO · GEO ACTION TRACKER</p><h2>개선항목 관리</h2><p>첨부한 개선 로드맵의 실행 과제 36개를 하나씩 수정하고 검증합니다.</p></div></div><article class="panel ib-summary" id="ibSummary"></article><div class="ib-toolbar"><select id="ibStage" aria-label="단계별 필터"><option value="all">전체 단계</option><option value="0">0단계 측정</option><option value="1">1단계 긴급 수정</option><option value="2">2단계 발행</option><option value="3">3단계 페이지</option><option value="4">4단계 신뢰</option><option value="5">5단계 동래점</option></select><select id="ibFilter" aria-label="상태 필터"><option value="all">전체 상태</option><option>대기</option><option>진행중</option><option>검토중</option><option>완료</option><option>보류</option></select><input id="ibSearch" type="search" placeholder="개선항목 검색"><button id="ibRefresh" class="outline" type="button">새로고침</button></div><p class="chart-note"><span id="ibCount"></span> · <span id="ibMessage">저장소 연결 중</span></p><article class="panel" id="ibList"></article><article class="panel ib-detail" id="ibDetail" hidden></article></section>
+<section class="view" id="view-run" aria-labelledby="runTitle">
         <div class="section-title">
           <div><p class="eyebrow">DAILY CHECK</p><h2 id="runTitle">오늘의 조사</h2><p>2개 AI에 같은 질문을 보내 추천 결과를 비교합니다.</p></div>
           <button class="primary" id="startRun" data-action="request-investigation">비로그인 조사 요청 <span>↗</span></button>
@@ -224,5 +227,6 @@
     <p id="evidenceNote"></p><div id="evidenceBody"></div>
   </dialog>
   <script type="module" src="./radar-app.js?v=20261001-two-ai"></script>
+  <script type="module" src="./radar-improvements.js?v=20261010"></script>
 </body>
 </html>
