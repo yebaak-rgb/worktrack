@@ -41,7 +41,7 @@ export async function storageRequest(path,input){
   const {db,owner}=context();
   if(path==='/api/state')return readState(db,owner);
   if(path==='/api/settings'){
-    const settings=validateSettings(input);await result(db.from('yeba_radar_settings').upsert({user_id:owner,body:settings},{onConflict:'user_id'}).select('user_id'));
+    const settings=validateSettings(input);const previous=await result(db.from('yeba_radar_settings').select('body').eq('user_id',owner).maybeSingle());await result(db.from('yeba_radar_settings').upsert({user_id:owner,body:{...(previous?.body||{}),...settings}},{onConflict:'user_id'}).select('user_id'));
     return readState(db,owner);
   }
   if(!input||typeof input!=='object')throw new Error('저장할 결과가 필요합니다.');
