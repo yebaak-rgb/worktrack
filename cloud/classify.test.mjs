@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { classify } from './classify.mjs';
 const settings = { targetName: '예바치과교정과치과의원', aliases: '예바, YEBA, 예바치과' };
+test('Gemini region-first headings retain clinic names despite excluded source labels',()=>{
+ const answer='예바치과교정과의원\n서면 예바치과교정과치과의원 | 부산 서면역 교정전문치과·인비절라인\n1. 부산 해운대구 — 연세센텀치과교정과치과의원 (센텀시티)\n2. 부산 부산진구(서면) — 예바치과교정과치과의원 (서면역)\n예바치과교정과의원\n3. 부산 부산진구(서면) — CS치과병원';
+ const result=classify(answer,settings);
+ assert.equal(result.our_mention,true);
+ for(const name of ['예바치과교정과치과의원','연세센텀치과교정과치과의원','CS치과병원'])assert(result.hospitals.includes(name));
+});
+test('region-first Dongnae heading remains excluded even with the Seomyeon formal name',()=>{
+ const result=classify('1. 부산 동래구 — 예바치과교정과치과의원',settings);
+ assert.equal(result.our_mention,false);
+ assert.deepEqual(result.hospitals,['부산 동래구 — 예바치과교정과치과의원']);
+});
 test('clinic headings count once and retain source names', () => {
   const result = classify('1. 예바치과교정과치과의원 (서면)\n추천 이유: 전문의\n예바치과교정과치과의원\n연세센텀치과 교정과치과의원\n', settings);
   assert.deepEqual(result.hospitals, ['예바치과교정과치과의원', '연세센텀치과 교정과치과의원']);
