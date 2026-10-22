@@ -1,11 +1,22 @@
 // Recommendation flags need evidence in both the answer and the reviewed list.
-const defaults = {targetName:'예바치과교정과치과의원',aliases:'예바, YEBA, 예바치과'};
+export const defaultAliases = '서면 예바, 서면예바, 예바치과 서면점, YEBA Orthodontics Clinic, YEBA Othodontics';
+const defaults = {targetName:'예바치과교정과치과의원',aliases:defaultAliases};
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g,'');
+export function isExcludedHospital(name) {
+  const value=normalize(name);
+  return /동래.*예바|예바.*동래|예바치과교정과의원/.test(value);
+}
 export function targetInText(text, settings=defaults) {
-  const body=normalize(String(text || '').replace(/https?:\/\/\S+/gi,''));
-  return [settings.targetName,...String(settings.aliases || '').split(',')]
-    .map(normalize).filter(Boolean).some(alias=>body.includes(alias));
+  // Strip only excluded name occurrences, so a separate Seomyeon recommendation survives.
+  const body=normalize(String(text || '').replace(/https?:\/\/\S+/gi,''))
+    .replace(/동래(?:점)?[·:()\-]*예바(?:치과교정과치과의원|치과교정과의원|치과교정과|치과)?/g,'')
+    .replace(/예바(?:치과교정과치과의원|치과교정과의원|치과교정과|치과)?[·:()\-]*동래(?:점)?/g,'')
+    .replace(/예바치과교정과의원/g,'');
+  const safeAliases=normalize(settings.targetName)===normalize(defaults.targetName)?defaultAliases.split(','):[];
+  return [settings.targetName,...safeAliases,...String(settings.aliases || '').split(',')]
+    .map(normalize).filter(alias=>alias&&!isExcludedHospital(alias)&&!['예바','yeba','예바치과','예바치과교정과'].includes(alias)).some(alias=>body.includes(alias));
 }
 export function hasRecommendationEvidence(answer,hospitals,settings=defaults) {
-  return targetInText(answer,settings) && hospitals.some(name=>targetInText(name,settings));
+  return targetInText(answer,settings) && hospitals.some(name=>!isExcludedHospital(name)&&targetInText(name,settings));
 }
+
