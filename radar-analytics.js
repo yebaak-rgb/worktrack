@@ -1,4 +1,4 @@
-import {targetInText, hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
+import {targetInText, hasRecommendationEvidence, isExcludedHospital} from './radar-classification.js?v=20261022-branches';
 
 export const AIS = ['ChatGPT', 'Gemini'];
 export const percent = (n, d) => d ? n / d * 100 : null;
@@ -10,6 +10,7 @@ export function shiftMonth(month, offset) {
 export function canonicalHospital(name, settings) {
   const value = String(name || '').normalize('NFKC').trim();
   if (!value) return '';
+  if (isExcludedHospital(value)) return '동래예바치과';
   if (targetInText(value, settings)) return '예바치과';
   // Only typographic/formal suffix variants are merged. Branch words stay intact.
   return value.replace(/\s+/g, '').replace(/치과교정과치과의원/g, '치과')
