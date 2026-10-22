@@ -1,6 +1,6 @@
 // Conservative name extraction from standalone clinic headings/list items.
 // Full source text remains unchanged for later review in the dashboard.
-import {hasRecommendationEvidence} from '../radar-classification.js?v=20261022-branches';
+import {hasRecommendationEvidence, targetInText} from '../radar-classification.js?v=20261022-branches';
 export function classify(answer, settings) {
   const hospitals = [];
   for (const raw of answer.split('\n')) {
@@ -20,5 +20,6 @@ export function classify(answer, settings) {
     const name=regionalHeading||line;
     if (!hospitals.includes(name)) hospitals.push(name);
   }
-  return { hospitals: hospitals.slice(0, 20), our_mention: hasRecommendationEvidence(answer,hospitals,settings), needsReview: hospitals.length === 0 || hospitals.length > 20 };
+  const own=hasRecommendationEvidence(answer,hospitals,settings);
+  return { hospitals: hospitals.slice(0, 20), our_mention: own, needsReview: hospitals.length === 0 || hospitals.length > 20 || (targetInText(answer,settings)&&!own) };
 }
