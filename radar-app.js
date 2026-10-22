@@ -1,8 +1,8 @@
-import {classify} from './cloud/classify.mjs?v=20261022-branches';
-import {storageRequest} from './radar-storage.js?v=20261022-branches';
-import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases} from './radar-classification.js?v=20261022-branches';
-import {isOurRecommendation} from './radar-analytics.js?v=20261022-branches';
-import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261022-branches';
+import {classify} from './cloud/classify.mjs?v=20261022-branches-r2';
+import {storageRequest} from './radar-storage.js?v=20261022-branches-r2';
+import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases} from './radar-classification.js?v=20261022-branches-r2';
+import {isOurRecommendation} from './radar-analytics.js?v=20261022-branches-r2';
+import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261022-branches-r2';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
