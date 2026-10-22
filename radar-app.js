@@ -1,4 +1,4 @@
-import {classify} from './cloud/classify.mjs?v=20261022-branches-r2';
+import {classify} from './cloud/classify.mjs?v=20261022-region-headings';
 import {storageRequest} from './radar-storage.js?v=20261022-branches-r2';
 import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases} from './radar-classification.js?v=20261022-branches-r2';
 import {isOurRecommendation} from './radar-analytics.js?v=20261022-branches-r2';
