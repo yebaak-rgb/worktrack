@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import { createRemoteJWKSet, jwtVerify } from 'npm:jose@6.2.12';
+import {hasRecommendationEvidence} from './radar-classification.js';
 
 const OWNER = '6a1e9d76-a239-4099-bfc8-f95c5a96fe36';
 const REPO = 'yebaak-rgb/worktrack';
@@ -38,7 +39,6 @@ Deno.serve(async (request) => {
     try { input = JSON.parse(text); } catch { return json({ error: 'invalid_json' }, 400); }
     if (input.date !== date || !Array.isArray(input.results) || !input.results.length || input.results.length > 40) return json({ error: 'invalid_batch' }, 400);
     const seen = new Set();
-    const aliases = [settings.targetName, ...String(settings.aliases || '').split(',')].map(normalize).filter(Boolean);
     const rows = [];
     for (const r of input.results) {
       if (!['ChatGPT', 'Gemini'].includes(r.ai) || !settings.questions.includes(r.question) || !['완료', '실패'].includes(r.status)
@@ -52,7 +52,7 @@ Deno.serve(async (request) => {
       if (source.protocol !== 'https:' || source.hostname !== (r.ai === 'ChatGPT' ? 'chatgpt.com' : 'gemini.google.com')) return json({ error: 'invalid_source' }, 400);
       const hospitals = r.status === '완료' ? [...new Set<string>(r.hospitals)] : [];
       if (hospitals.some(h => !normalize(r.answer).includes(normalize(h)))) return json({ error: 'unsupported_hospital' }, 400);
-      const own = r.status === '완료' && hospitals.some(h => aliases.some(alias => normalize(h).includes(alias))) && aliases.some(alias => normalize(r.answer).includes(alias));
+      const own = r.status === '완료' && hasRecommendationEvidence(r.answer,hospitals,settings);
       if ((existing || []).some(e => e.ai === r.ai && e.question === r.question && e.status === '완료')) continue;
       rows.push({ user_id: OWNER, date, ai: r.ai, question: r.question, answer: r.answer, hospitals, our_mention: own, status: r.status, source_url: source.href, collection_method: '비로그인 웹' });
     }

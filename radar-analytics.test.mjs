@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildMonth, buildInsights, canonicalHospital, uniqueRecords, shiftMonth} from './radar-analytics.js';
 const settings={targetName:'예바치과교정과치과의원',aliases:'예바, YEBA, 예바치과',questions:['부산 교정 추천','서면 교정 추천','성인 교정 추천']};
-const row=(extra={})=>({id:'r',date:'2026-09-17',ai:'ChatGPT',question:settings.questions[0],answer:'예바치과와 비교치과를 추천합니다. 정밀 진단과 상담을 확인하세요.',hospitals:['예바치과','비교치과'],ourMention:true,status:'완료',collectionMethod:'비로그인 웹',sourceUrl:'https://chatgpt.com/',...extra});
+const row=(extra={})=>({id:'r',date:'2026-09-17',ai:'ChatGPT',question:settings.questions[0],answer:'예바치과교정과치과의원과 비교치과를 추천합니다. 정밀 진단과 상담을 확인하세요.',hospitals:['예바치과교정과치과의원','비교치과'],ourMention:true,status:'완료',collectionMethod:'비로그인 웹',sourceUrl:'https://chatgpt.com/',...extra});
 const report=(records,opts={})=>buildMonth(records,settings,{month:'2026-09',today:'2026-09-17',...opts});
 test('aliases and duplicates count once per answer without changing source',()=>{
- const records=[row({hospitals:['예바치과','예바치과교정과치과의원','YEBA','비교치과','비교 치과의원']})];
+ const records=[row({hospitals:['서면예바','예바치과교정과치과의원','YEBA Orthodontics Clinic','비교치과','비교 치과의원']})];
  const original=JSON.stringify(records),m=report(records);
  assert.equal(m.ranks.length,2);assert.equal(m.rank.count,1);assert.equal(m.rate,100);assert.equal(m.rank.aliases.length,3);assert.equal(JSON.stringify(records),original);
 });

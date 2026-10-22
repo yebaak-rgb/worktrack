@@ -1,7 +1,8 @@
-import {storageRequest} from './radar-storage.js?v=20261001-two-ai';
-import {hasRecommendationEvidence} from './radar-classification.js?v=20260915-classification';
-import {isOurRecommendation} from './radar-analytics.js?v=20261001-two-ai';
-import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261001-two-ai';
+import {classify} from './cloud/classify.mjs?v=20261022-branches';
+import {storageRequest} from './radar-storage.js?v=20261022-branches';
+import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases} from './radar-classification.js?v=20261022-branches';
+import {isOurRecommendation} from './radar-analytics.js?v=20261022-branches';
+import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261022-branches';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
@@ -19,7 +20,7 @@ const sampleHospitals = ['예바치과','라인업치과','이미지플러스치
 
 function localISO(date = new Date()) { return new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Seoul' }).format(date); }
 function loadState() {
-  const fallback = { dataVersion:DATA_VERSION, autoRun:true, scheduleTime:'09:30', targetName:'예바치과교정과치과의원', aliases:'예바, YEBA, 예바치과', questions:defaultQuestions, keys:{}, records:[], lastRun:null };
+  const fallback = { dataVersion:DATA_VERSION, autoRun:true, scheduleTime:'09:30', targetName:'예바치과교정과치과의원', aliases:defaultAliases, questions:defaultQuestions, keys:{}, records:[], lastRun:null };
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     const records = Array.isArray(saved.records) ? saved.records.filter(record => providers.some(provider => provider.name === record.ai) && !record.demo && !String(record.id || '').startsWith('seed-')) : [];
@@ -155,7 +156,7 @@ function renderResponses() {
     const stamp = r.savedAt && !Number.isNaN(Date.parse(r.savedAt)) ? `저장 ${new Date(r.savedAt).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit'})}` : '';
     const method = r.collectionMethod || (String(r.id).startsWith('browser-') ? '비로그인 웹' : 'API');
     let source = ''; try { const url = new URL(r.sourceUrl); if (['https:','http:'].includes(url.protocol)) source = `<a href="${escapeHTML(url.href)}" target="_blank" rel="noopener noreferrer">원문 페이지 ↗</a>`; } catch {}
-    return `<article class="response-card"><header><i class="ai-icon ${p.cls}">${p.icon}</i><strong>${escapeHTML(r.ai)}</strong><time>${escapeHTML(stamp)}</time></header><p>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · ${escapeHTML(method)} · ${r.status==='완료'?'수집':'미수집'}</p><p>${escapeHTML(r.answer)}</p><details><summary>응답 전문 · 미수집 사유</summary><p class="response-full">${escapeHTML(r.answer)}</p>${source}</details><div class="hospital-tags">${r.hospitals.map(h=>`<span class="${h.includes('예바')?'ours':''}">${escapeHTML(h)}</span>`).join('')}</div></article>`;
+    return `<article class="response-card"><header><i class="ai-icon ${p.cls}">${p.icon}</i><strong>${escapeHTML(r.ai)}</strong><time>${escapeHTML(stamp)}</time></header><p>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · ${escapeHTML(method)} · ${r.status==='완료'?'수집':'미수집'}</p><p>${escapeHTML(r.answer)}</p><details><summary>응답 전문 · 미수집 사유</summary><p class="response-full">${escapeHTML(r.answer)}</p>${source}</details><div class="hospital-tags">${r.hospitals.map(h=>`<span class="${!isExcludedHospital(h)&&targetInText(h,state)?'ours':''}">${escapeHTML(h)}</span>`).join('')}</div></article>`;
   }).join('') || '<p class="muted">아직 오늘 수집한 응답이 없습니다.</p>';
 }
 function renderRecords() {
@@ -163,11 +164,11 @@ function renderRecords() {
   const since=new Date(); if(days!=='all') since.setDate(since.getDate()-Number(days));
   const filtered=state.records.filter(r=>!r.demo&&(ai==='all'||r.ai===ai)&&(q==='all'||r.question===state.questions[Number(q)])&&(days==='all'||new Date(r.date)>=since));
   const completed=filtered.filter(r=>r.status==='완료');
-  const share=completed.length?completed.filter(r=>r.ourMention).length/completed.length*100:0;
-  const aiRates=providers.map(p=>{const rows=completed.filter(r=>r.ai===p.name);return{name:p.name,rate:rows.length?rows.filter(r=>r.ourMention).length/rows.length:0}}).sort((a,b)=>b.rate-a.rate);
+  const share=completed.length?completed.filter(r=>isOurRecommendation(r,state)).length/completed.length*100:0;
+  const aiRates=providers.map(p=>{const rows=completed.filter(r=>r.ai===p.name);return{name:p.name,rate:rows.length?rows.filter(r=>isOurRecommendation(r,state)).length/rows.length:0}}).sort((a,b)=>b.rate-a.rate);
   $('#filteredResponses').textContent=filtered.length; $('#filteredShare').textContent=`${share.toFixed(1)}%`; $('#bestAI').textContent=aiRates[0]?.name||'-';
-  $('#recordCount').textContent=`최근 ${Math.min(8,filtered.length)}건`;
-  $('#recordsBody').innerHTML=filtered.slice().reverse().slice(0,8).map(r=>`<tr><td>${r.date}</td><td>${escapeHTML(r.ai)}</td><td>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)}</td><td>${r.hospitals.map(escapeHTML).join(', ')}</td><td class="${r.ourMention?'yes-mark':'no-mark'}">${r.ourMention?'YES':'—'}</td><td><span class="mini-state">${escapeHTML(r.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">조건에 맞는 기록이 없습니다.</td></tr>';
+  $('#recordCount').textContent=`전체 ${filtered.length}건 · 질문에서 원문 펼치기`;
+  $('#recordsBody').innerHTML=filtered.slice().reverse().map(r=>`<tr><td>${r.date}</td><td>${escapeHTML(r.ai)}</td><td><details><summary>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · 원문 보기</summary><p>${escapeHTML(r.question)}</p><p style="white-space:pre-wrap">${escapeHTML(r.answer)}</p></details></td><td>${r.hospitals.map(escapeHTML).join(', ')}</td><td class="${isOurRecommendation(r,state)?'yes-mark':'no-mark'}">${isOurRecommendation(r,state)?'YES':'—'}</td><td><span class="mini-state">${escapeHTML(r.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">조건에 맞는 기록이 없습니다.</td></tr>';
 }
 function hydrateSettings() {
   $('#autoRun').checked=state.autoRun; $('#scheduleTime').value=state.scheduleTime; $('#targetName').value=state.targetName; $('#targetAliases').value=state.aliases;
@@ -192,11 +193,7 @@ $('#saveSettings').addEventListener('click',async()=>{
 $('#resetFilters').addEventListener('click',()=>{$('#historyRange').value='30';$('#historyAI').value='all';$('#historyQuestion').value='all';renderRecords();});
 ['historyRange','historyAI','historyQuestion'].forEach(id=>$('#'+id).addEventListener('change',renderRecords));
 
-function extractHospitals(text) {
-  const aliases=[...new Set([state.targetName,...state.aliases.split(',').map(x=>x.trim()),...sampleHospitals].filter(Boolean))];
-  const found=aliases.filter(name=>text.toLowerCase().includes(name.toLowerCase())).map(name=>name.includes('예바')||name.toLowerCase()==='yeba'?'예바치과':name);
-  const regex=/([가-힣A-Za-z]+(?:치과교정과)?치과(?:의원)?)/g; return [...new Set([...found,...(text.match(regex)||[])])].slice(0,6);
-}
+function extractHospitals(text) { return classify(text,state).hospitals; }
 async function queryProvider(provider, question) {
   const key=state.keys[provider.id];
   if (!key) throw new Error(`${provider.name} API 키가 연결되지 않았습니다.`);
@@ -242,7 +239,7 @@ async function runInvestigation() {
     for(let qi=0;qi<state.questions.length;qi++) {
       const question=state.questions[qi];
       try {
-        const answer=await queryProvider(provider,question);const hospitals=extractHospitals(answer);const ours=hospitals.some(h=>h.includes('예바'));if(ours)mentions++;
+        const answer=await queryProvider(provider,question);const hospitals=extractHospitals(answer);const ours=hasRecommendationEvidence(answer,hospitals,state);if(ours)mentions++;
         collected.push({ai:provider.name,question,answer,hospitals,our_mention:ours,status:'완료'});
       } catch(error) {
         failures++;collected.push({ai:provider.name,question,answer:error.message,hospitals:[],our_mention:false,status:'실패'});
@@ -282,7 +279,7 @@ $('#importFile').addEventListener('change',async e=>{
 function registerWebMCP() {
   const context=document.modelContext;
   const recent=()=>completedRecords().filter(r=>r.date>=localISO(new Date(Date.now()-30*86400000)));
-  const readTool={name:'read_yeba_share_summary',title:'예바 추천 점유율 요약',description:'현재 저장된 기록에서 예바치과의 추천 점유율, 조사 질문과 오늘 수집 상태를 읽습니다.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},async execute(input={}){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('입력값 없이 호출해야 합니다.');await cloudStartup;if(!cloudReady)throw new Error('사이트 저장소에 연결되지 않았습니다.');await refreshCloud();const rows=recent();const today=state.records.filter(r=>r.date===localISO()&&!r.demo);return{storage:'cloud',server_record_count:state.records.length,period_days:30,total_responses:rows.length,yeba_mentions:rows.filter(r=>r.ourMention).length,share_percent:rows.length?Number((rows.filter(r=>r.ourMention).length/rows.length*100).toFixed(1)):0,questions:state.questions.slice(),today_success:today.filter(r=>r.status==='완료').length,today_unavailable:today.filter(r=>r.status==='실패').length,today_complete:providers.every(provider=>state.questions.every(question=>today.some(r=>r.ai===provider.name&&r.question===question&&r.status==='완료')))};}};
+  const readTool={name:'read_yeba_share_summary',title:'예바 추천 점유율 요약',description:'현재 저장된 기록에서 예바치과의 추천 점유율, 조사 질문과 오늘 수집 상태를 읽습니다.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},async execute(input={}){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('입력값 없이 호출해야 합니다.');await cloudStartup;if(!cloudReady)throw new Error('사이트 저장소에 연결되지 않았습니다.');await refreshCloud();const rows=recent();const today=state.records.filter(r=>r.date===localISO()&&!r.demo);return{storage:'cloud',server_record_count:state.records.length,period_days:30,total_responses:rows.length,yeba_mentions:rows.filter(r=>isOurRecommendation(r,state)).length,share_percent:rows.length?Number((rows.filter(r=>isOurRecommendation(r,state)).length/rows.length*100).toFixed(1)):0,questions:state.questions.slice(),today_success:today.filter(r=>r.status==='완료').length,today_unavailable:today.filter(r=>r.status==='실패').length,today_complete:providers.every(provider=>state.questions.every(question=>today.some(r=>r.ai===provider.name&&r.question===question&&r.status==='완료')))};}};
   const saveTool={
     name:'save_yeba_recommendation_results',
     title:'예바 AI 조사 결과 저장',
@@ -324,13 +321,9 @@ function prepareManual(){
   manualDuplicate();
 }
 function detectManualHospitals(){
-  const answer=$('#manualAnswer').value;
-  const aliases=[state.targetName,...String(state.aliases||'').split(',')].map(x=>x.trim()).filter(Boolean);
-  const ours=aliases.some(alias=>answer.toLocaleLowerCase().includes(alias.toLocaleLowerCase()));
-  const known=state.records.flatMap(r=>r.hospitals).filter(name=>answer.toLocaleLowerCase().includes(name.toLocaleLowerCase()));
-  const candidates=[...(ours?['예바치과']:[]),...known,...(answer.match(/[가-힣A-Za-z0-9]+(?:치과교정과)?치과(?:교정과치과의원|의원|병원)?/g)||[])];
-  $('#manualHospitals').value=[...new Set(candidates.filter(name=>!['치과','치과의원','교정치과','전문치과'].includes(name)).map(name=>/예바|yeba/i.test(name)?'예바치과':name))].slice(0,20).join('\n');
-  $('#manualMention').checked=ours;
+  const result=classify($('#manualAnswer').value,state);
+  $('#manualHospitals').value=result.hospitals.join('\n');
+  $('#manualMention').checked=result.our_mention;
 }
 $('#manualDetect').addEventListener('click',()=>{manualClassificationEdited=false;detectManualHospitals();manualEdited=true;manualMessage('치과명을 다시 찾았습니다. 실제 추천 목록과 예바 추천 여부를 확인해 주세요.');});
 $('#manualAnswer').addEventListener('input',()=>{$('#manualChars').textContent=$('#manualAnswer').value.length.toLocaleString()+' / 60,000자';manualClassificationEdited=false;detectManualHospitals();$('#manualGuest').checked=false;});

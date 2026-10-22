@@ -14,8 +14,9 @@ test('stale YES cannot be saved for a competitor-only answer',()=>{
 test('both answer and reviewed hospitals must support YES',()=>{
   assert.equal(hasRecommendationEvidence('예바치과를 추천합니다.',['디자인치과']),false);
   assert.equal(hasRecommendationEvidence(record.answer,['예바치과']),false);
-  assert.equal(hasRecommendationEvidence('예바 치과교정과를 추천합니다.',['예바치과']),true);
-  assert.equal(hasRecommendationEvidence('YEBA dental',['Yeba']),true);
+  assert.equal(hasRecommendationEvidence('예바 치과교정과치과의원을 추천합니다.',['예바치과교정과치과의원']),true);
+  assert.equal(hasRecommendationEvidence('YEBA Orthodontics Clinic',['YEBA Orthodontics Clinic']),true);
+  assert.equal(hasRecommendationEvidence('YEBA dental',['Yeba']),false);
   assert.equal(hasRecommendationEvidence('디자인치과 추천 https://example.com/yeba',['예바치과']),false);
 });
 test('manual NO is preserved and failures never count',()=>{
