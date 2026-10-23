@@ -1,4 +1,4 @@
-import {targetInText, hasRecommendationEvidence, isExcludedHospital, isClassificationReview} from './radar-classification.js?v=20261023-classification';
+import {targetInText, hasRecommendationEvidence, isExcludedHospital, isClassificationReview} from './radar-classification.js?v=20261023-october-audit';
 
 export const AIS = ['ChatGPT', 'Gemini'];
 export const percent = (n, d) => d ? n / d * 100 : null;

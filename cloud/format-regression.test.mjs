@@ -30,3 +30,31 @@ test('review is collected but excluded from rates, not an access failure or nega
 test('deployed server and frontend share the exact branch evidence rules',()=>{
  assert.equal(readFileSync(new URL('../radar-classification.js',import.meta.url),'utf8'),readFileSync(new URL('../supabase/functions/yeba-radar-cloud/radar-classification.js',import.meta.url),'utf8'));
 });
+
+test('October table retains a branch on the next nonempty line',()=>{
+ const answer='예바치과교정과의원\n\n\n(부산진구 서면)\n\t전문의\nCS치과병원';
+ const r=classify(answer,settings);
+ assert.equal(r.our_mention,true);assert.equal(r.needsReview,false);
+ assert(r.hospitals.includes('예바치과교정과의원 (부산진구 서면)'));
+ assert.equal(hasRecommendationEvidence('예바치과교정과의원\n디자인치과\n(부산진구 서면)', ['예바치과교정과의원'],settings),false);
+ assert.equal(classify('예바치과교정과의원\n(동래구 온천동)',settings).our_mention,false);
+});
+
+test('combined branch heading preserves Seomyeon while Dongnae alone stays excluded',()=>{
+ const answer='2. 예바치과교정과 — 서면/동래권에서 비교하기 좋은 후보\n예바는 부산진구 서면에 별도 지점이 있습니다.';
+ const r=classify(answer,settings);
+ assert.equal(r.our_mention,true);assert.equal(r.needsReview,false);
+ assert(r.hospitals.includes('예바치과교정과 — 서면/동래권'));
+ assert.equal(classify('2. 예바치과교정과 — 동래권\n서면에서도 접근 가능합니다.',settings).our_mention,false);
+});
+
+test('Seomyeon introduction does not resolve an ambiguous abbreviated card',()=>{
+ const r=classify('서면 지역 치과 추천\n예바치과교정과의원\n전문의 진료\nCS치과병원',settings);
+ assert.equal(r.our_mention,false);assert.equal(r.needsReview,true);
+ assert.equal(classify('서면도 고려한다면\n예바치과교정과의원\n동래구 온천동',settings).needsReview,false);
+});
+
+test('generic headings and description prefixes do not become separate clinics',()=>{
+ const r=classify('교정 전문의 중심 치과\n추가로 비교할 만한 치과\n투명교정 진료가 가능한 치과\n정밀검사와 유지관리가 잘 갖춰진 치과\n해운대 센텀 지역에 위치한 연세센텀치과 교정과치과의원\n연세센텀치과 교정과치과의원',settings);
+ assert.deepEqual(r.hospitals,['연세센텀치과 교정과치과의원']);
+});

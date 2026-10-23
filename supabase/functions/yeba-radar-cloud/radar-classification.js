@@ -2,13 +2,25 @@
 export const defaultAliases = '서면 예바, 서면예바, 예바치과 서면점, YEBA Orthodontics Clinic, YEBA Othodontics';
 const defaults = {targetName:'예바치과교정과치과의원',aliases:defaultAliases};
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g,'');
+// Preserve branch labels that the rendered table places on a separate line.
+// Return source substrings, never inferred or invented clinic names.
+export function branchQualifiedNames(text) {
+  const body=String(text || '').replaceAll('**','');
+  const patterns=[
+    /예바치과(?:교정과)?(?:치과)?(?:의원)?\s*\((?:부산\s*)?(?:부산진구\s*)?서면(?:역|점)?\)/g,
+    /예바치과(?:교정과)?(?:치과)?(?:의원)?\s+[—–]\s+(?:서면\s*\/\s*동래|동래\s*\/\s*서면)권?/g
+  ];
+  return [...new Set(patterns.flatMap(pattern=>[...body.matchAll(pattern)].map(m=>m[0].replace(/\s+/g,' ').trim())))];
+}
 export function isExcludedHospital(name) {
   const value=normalize(name);
+  if (branchQualifiedNames(name).some(h=>normalize(h)===value)) return false;
   if (/동래.*예바|예바.*동래/.test(value)) return true;
   // An explicit branch takes precedence over the abbreviated legal name.
   return /예바치과교정과의원/.test(value) && !/서면/.test(value);
 }
 export function targetInText(text, settings=defaults) {
+  if (normalize(settings.targetName)===normalize(defaults.targetName) && branchQualifiedNames(text).length) return true;
   // Resolve each occurrence independently; a Dongnae mention elsewhere must
   // never erase an explicitly named Seomyeon branch in the same answer.
   const explicit = String(text || '').split(/\n|[.!?]/).some(line =>
