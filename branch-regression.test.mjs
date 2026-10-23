@@ -5,7 +5,7 @@ import {classify} from './cloud/classify.mjs';
 import {buildMonth,canonicalHospital} from './radar-analytics.js';
 const settings={targetName:'예바치과교정과치과의원',aliases:'예바, YEBA, 예바치과',questions:['추천']};
 test('Dongnae never matches legacy broad aliases or formal-name variants',()=>{
- for(const name of ['동래 예바','동래예바치과','예바치과교정과의원','예바치과교정과의원 서면','동래 예바치과교정과치과의원','예바치과교정과치과의원 (동래점)']){
+ for(const name of ['동래 예바','동래예바치과','예바치과교정과의원','동래 예바치과교정과치과의원','예바치과교정과치과의원 (동래점)']){
   assert.equal(targetInText(name,settings),false,name);
   assert.equal(hasRecommendationEvidence(name,[name],settings),false,name);
  }

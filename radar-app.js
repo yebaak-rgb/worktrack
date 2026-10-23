@@ -1,8 +1,8 @@
-import {classify} from './cloud/classify.mjs?v=20261022-region-headings';
-import {storageRequest} from './radar-storage.js?v=20261022-branches-r2';
-import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases} from './radar-classification.js?v=20261022-branches-r2';
-import {isOurRecommendation} from './radar-analytics.js?v=20261022-branches-r2';
-import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261022-branches-r2';
+import {classify} from './cloud/classify.mjs?v=20261023-classification';
+import {storageRequest} from './radar-storage.js?v=20261023-classification';
+import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases, isClassificationReview, collectionLabel} from './radar-classification.js?v=20261023-classification';
+import {isOurRecommendation} from './radar-analytics.js?v=20261023-classification';
+import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261023-classification';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
@@ -108,26 +108,28 @@ function completedRecords() { return state.records.filter(record => record.statu
 function renderOverview() {
   const today = completedRecords().filter(r => r.date === localISO());
   const expected = providers.length * state.questions.length;
-  const unavailable = state.records.filter(r => r.date === localISO() && r.status === '실패' && !r.demo).length;
-  const allCollected = providers.every(p => state.questions.every(q => today.some(r => r.ai === p.name && r.question === q)));
+  const review = state.records.filter(r=>r.date===localISO()&&!r.demo&&isClassificationReview(r));
+  const collected = [...today,...review];
+  const unavailable = state.records.filter(r => r.date === localISO() && r.status === '실패' && !isClassificationReview(r) && !r.demo).length;
+  const allCollected = providers.every(p => state.questions.every(q => collected.some(r => r.ai === p.name && r.question === q)));
   const mentions = today.filter(r => isOurRecommendation(r,state)).length;
-  $('#runCounter').textContent = `${today.length} / ${expected} 수집 · ${unavailable}건 미수집`;
-  $('#modeStatus').lastChild.textContent = allCollected ? ' 오늘 조사 완료' : today.length ? ' 일부 수집' : ' 수집 대기';
+  $('#runCounter').textContent = `${collected.length} / ${expected} 수집 · ${unavailable}건 미수집 · ${review.length}건 분류 검토`;
+  $('#modeStatus').lastChild.textContent = review.length ? ' 분류 검토 필요' : allCollected ? ' 오늘 조사 완료' : today.length ? ' 일부 수집' : ' 수집 대기';
   $('#providerQuestionCount').textContent = `${providers.length}개 AI × 질문 ${state.questions.length}개 · 오늘 현황은 월 필터와 별개`;
   $('#providerProgress').innerHTML = providers.map(p => {
-    const done = state.questions.filter(q => today.some(r => r.ai === p.name && r.question === q)).length;
+    const done = state.questions.filter(q => collected.some(r => r.ai === p.name && r.question === q)).length;
     const pct = state.questions.length ? done / state.questions.length * 100 : 0;
     const label = `${p.name} ${done}/${state.questions.length} 수집`;
     return `<div class="provider-progress"><span class="provider-track" role="progressbar" aria-label="${escapeHTML(label)}" aria-valuemin="0" aria-valuemax="${state.questions.length}" aria-valuenow="${done}"><i class="${p.cls}" style="width:${pct}%"></i></span><small>${label}</small></div>`;
   }).join('');
-  $('#briefingText').textContent = `오늘 실제 응답 ${today.length}건 · 예바 추천 ${mentions}건 · 미수집 ${unavailable}건`;
-  const percentage = expected ? Math.min(100,Math.round(today.length/expected*100)) : 0;
+  $('#briefingText').textContent = `오늘 실제 응답 ${collected.length}건 · 예바 추천 ${mentions}건 · 미수집 ${unavailable}건 · 분류 검토 ${review.length}건`;
+  const percentage = expected ? Math.min(100,Math.round(collected.length/expected*100)) : 0;
   $('#runPercent').textContent = percentage+'%';
   $('.run-gauge').style.background = `radial-gradient(circle closest-side,#fff 78%,transparent 80% 100%),conic-gradient(var(--teal) ${percentage}%,#e9edf4 0)`;
   $('#runStatus').className = allCollected ? 'status-pill success' : unavailable ? 'status-pill error' : 'status-pill neutral';
-  $('#runStatus').textContent = allCollected ? '완료' : today.length ? '일부 수집' : unavailable ? '수집 제한' : '대기';
-  $('#runHeadline').textContent = today.length ? `${expected}개 조사 중 ${today.length}개 응답을 수집했습니다.` : '오늘 첫 조사를 시작해 주세요.';
-  $('#runDescription').textContent = `실제 응답 ${today.length}건 · 미수집 ${unavailable}건. 추천률은 실제 응답만 기준으로 계산합니다.`;
+  $('#runStatus').textContent = review.length ? '분류 검토' : allCollected ? '완료' : today.length ? '일부 수집' : unavailable ? '수집 제한' : '대기';
+  $('#runHeadline').textContent = collected.length ? `${expected}개 조사 중 ${collected.length}개 응답을 수집했습니다.` : '오늘 첫 조사를 시작해 주세요.';
+  $('#runDescription').textContent = `실제 응답 ${collected.length}건 · 미수집 ${unavailable}건 · 분류 검토 ${review.length}건. 추천률은 분류가 확정된 응답만 기준으로 계산합니다.`;
   renderMonthly(state);
 }
 
@@ -142,9 +144,10 @@ function renderQueue(activeProvider = '') {
   $('#queueList').innerHTML = providers.map(provider => {
     const connected = Boolean(state.keys[provider.id]);
     const done = today.filter(record => record.ai === provider.name).length;
-    const failed = state.records.filter(record => record.date === localISO() && record.ai === provider.name && record.status === '실패' && !record.demo).length;
+    const pending = state.records.filter(r=>r.date===localISO()&&r.ai===provider.name&&!r.demo&&isClassificationReview(r)).length;
+    const failed = state.records.filter(record => record.date === localISO() && record.ai === provider.name && record.status === '실패' && !isClassificationReview(record) && !record.demo).length;
     const active = provider.id === activeProvider;
-    const message = active ? '응답 수집 중' : failed ? `${done}건 수집 · ${failed}건 미수집` : done ? `${done}개 질문 완료` : connected ? 'API 수집 대기' : '비로그인 웹 조사 대기';
+    const message = active ? '응답 수집 중' : pending ? `${done+pending}건 수집 · ${pending}건 분류 검토 · ${failed}건 미수집` : failed ? `${done}건 수집 · ${failed}건 미수집` : done ? `${done}개 질문 완료` : connected ? 'API 수집 대기' : '비로그인 웹 조사 대기';
     const icon = active ? '◌' : done ? '✓' : '–';
     return `<div class="queue-item ${active?'is-running':''}"><i class="ai-icon ${provider.cls}">${provider.icon}</i><div><strong>${provider.name}</strong><small>${message}</small></div><span class="queue-icon">${icon}</span></div>`;
   }).join('');
@@ -156,7 +159,7 @@ function renderResponses() {
     const stamp = r.savedAt && !Number.isNaN(Date.parse(r.savedAt)) ? `저장 ${new Date(r.savedAt).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit'})}` : '';
     const method = r.collectionMethod || (String(r.id).startsWith('browser-') ? '비로그인 웹' : 'API');
     let source = ''; try { const url = new URL(r.sourceUrl); if (['https:','http:'].includes(url.protocol)) source = `<a href="${escapeHTML(url.href)}" target="_blank" rel="noopener noreferrer">원문 페이지 ↗</a>`; } catch {}
-    return `<article class="response-card"><header><i class="ai-icon ${p.cls}">${p.icon}</i><strong>${escapeHTML(r.ai)}</strong><time>${escapeHTML(stamp)}</time></header><p>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · ${escapeHTML(method)} · ${r.status==='완료'?'수집':'미수집'}</p><p>${escapeHTML(r.answer)}</p><details><summary>응답 전문 · 미수집 사유</summary><p class="response-full">${escapeHTML(r.answer)}</p>${source}</details><div class="hospital-tags">${r.hospitals.map(h=>`<span class="${!isExcludedHospital(h)&&targetInText(h,state)?'ours':''}">${escapeHTML(h)}</span>`).join('')}</div></article>`;
+    return `<article class="response-card"><header><i class="ai-icon ${p.cls}">${p.icon}</i><strong>${escapeHTML(r.ai)}</strong><time>${escapeHTML(stamp)}</time></header><p>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · ${escapeHTML(method)} · ${collectionLabel(r)}</p><p>${escapeHTML(r.answer)}</p><details><summary>응답 전문 · 미수집 사유</summary><p class="response-full">${escapeHTML(r.answer)}</p>${source}</details><div class="hospital-tags">${r.hospitals.map(h=>`<span class="${!isExcludedHospital(h)&&targetInText(h,state)?'ours':''}">${escapeHTML(h)}</span>`).join('')}</div></article>`;
   }).join('') || '<p class="muted">아직 오늘 수집한 응답이 없습니다.</p>';
 }
 function renderRecords() {
@@ -168,7 +171,7 @@ function renderRecords() {
   const aiRates=providers.map(p=>{const rows=completed.filter(r=>r.ai===p.name);return{name:p.name,rate:rows.length?rows.filter(r=>isOurRecommendation(r,state)).length/rows.length:0}}).sort((a,b)=>b.rate-a.rate);
   $('#filteredResponses').textContent=filtered.length; $('#filteredShare').textContent=`${share.toFixed(1)}%`; $('#bestAI').textContent=aiRates[0]?.name||'-';
   $('#recordCount').textContent=`전체 ${filtered.length}건 · 질문에서 원문 펼치기`;
-  $('#recordsBody').innerHTML=filtered.slice().reverse().map(r=>`<tr><td>${r.date}</td><td>${escapeHTML(r.ai)}</td><td><details><summary>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · 원문 보기</summary><p>${escapeHTML(r.question)}</p><p style="white-space:pre-wrap">${escapeHTML(r.answer)}</p></details></td><td>${r.hospitals.map(escapeHTML).join(', ')}</td><td class="${isOurRecommendation(r,state)?'yes-mark':'no-mark'}">${isOurRecommendation(r,state)?'YES':'—'}</td><td><span class="mini-state">${escapeHTML(r.status)}</span></td></tr>`).join('')||'<tr><td colspan="6">조건에 맞는 기록이 없습니다.</td></tr>';
+  $('#recordsBody').innerHTML=filtered.slice().reverse().map(r=>`<tr><td>${r.date}</td><td>${escapeHTML(r.ai)}</td><td><details><summary>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · 원문 보기</summary><p>${escapeHTML(r.question)}</p><p style="white-space:pre-wrap">${escapeHTML(r.answer)}</p></details></td><td>${r.hospitals.map(escapeHTML).join(', ')}</td><td class="${isOurRecommendation(r,state)?'yes-mark':'no-mark'}">${isOurRecommendation(r,state)?'YES':'—'}</td><td><span class="mini-state">${escapeHTML(collectionLabel(r))}</span></td></tr>`).join('')||'<tr><td colspan="6">조건에 맞는 기록이 없습니다.</td></tr>';
 }
 function hydrateSettings() {
   $('#autoRun').checked=state.autoRun; $('#scheduleTime').value=state.scheduleTime; $('#targetName').value=state.targetName; $('#targetAliases').value=state.aliases;
@@ -279,7 +282,7 @@ $('#importFile').addEventListener('change',async e=>{
 function registerWebMCP() {
   const context=document.modelContext;
   const recent=()=>completedRecords().filter(r=>r.date>=localISO(new Date(Date.now()-30*86400000)));
-  const readTool={name:'read_yeba_share_summary',title:'예바 추천 점유율 요약',description:'현재 저장된 기록에서 예바치과의 추천 점유율, 조사 질문과 오늘 수집 상태를 읽습니다.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},async execute(input={}){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('입력값 없이 호출해야 합니다.');await cloudStartup;if(!cloudReady)throw new Error('사이트 저장소에 연결되지 않았습니다.');await refreshCloud();const rows=recent();const today=state.records.filter(r=>r.date===localISO()&&!r.demo);return{storage:'cloud',server_record_count:state.records.length,period_days:30,total_responses:rows.length,yeba_mentions:rows.filter(r=>isOurRecommendation(r,state)).length,share_percent:rows.length?Number((rows.filter(r=>isOurRecommendation(r,state)).length/rows.length*100).toFixed(1)):0,questions:state.questions.slice(),today_success:today.filter(r=>r.status==='완료').length,today_unavailable:today.filter(r=>r.status==='실패').length,today_complete:providers.every(provider=>state.questions.every(question=>today.some(r=>r.ai===provider.name&&r.question===question&&r.status==='완료')))};}};
+  const readTool={name:'read_yeba_share_summary',title:'예바 추천 점유율 요약',description:'현재 저장된 기록에서 예바치과의 추천 점유율, 조사 질문과 오늘 수집 상태를 읽습니다.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true,untrustedContentHint:false},async execute(input={}){if(!input||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length)throw new Error('입력값 없이 호출해야 합니다.');await cloudStartup;if(!cloudReady)throw new Error('사이트 저장소에 연결되지 않았습니다.');await refreshCloud();const rows=recent();const today=state.records.filter(r=>r.date===localISO()&&!r.demo);return{storage:'cloud',server_record_count:state.records.length,period_days:30,total_responses:rows.length,yeba_mentions:rows.filter(r=>isOurRecommendation(r,state)).length,share_percent:rows.length?Number((rows.filter(r=>isOurRecommendation(r,state)).length/rows.length*100).toFixed(1)):0,questions:state.questions.slice(),today_success:today.filter(r=>r.status==='완료').length,today_review:today.filter(isClassificationReview).length,today_unavailable:today.filter(r=>r.status==='실패'&&!isClassificationReview(r)).length,today_complete:providers.every(provider=>state.questions.every(question=>today.some(r=>r.ai===provider.name&&r.question===question&&r.status==='완료')))};}};
   const saveTool={
     name:'save_yeba_recommendation_results',
     title:'예바 AI 조사 결과 저장',

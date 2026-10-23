@@ -1,4 +1,5 @@
-import {AIS, buildMonth, buildInsights, koreaDate, shiftMonth, isOurRecommendation} from './radar-analytics.js?v=20261022-branches-r2';
+import {isClassificationReview, collectionLabel} from './radar-classification.js?v=20261023-classification';
+import {AIS, buildMonth, buildInsights, koreaDate, shiftMonth, isOurRecommendation} from './radar-analytics.js?v=20261023-classification';
 const $ = id => document.getElementById(id);
 const e = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rate = value => value === null ? '—' : value.toFixed(1)+'%';
@@ -42,17 +43,17 @@ export function renderMonthly(state) {
   const m=model, partial=m.month===koreaDate().slice(0,7);
   $('reportMonth').value=selectedMonth; $('reportMonth').max=koreaDate().slice(0,7);
   $('nextMonth').disabled=selectedMonth>=koreaDate().slice(0,7);
-  $('reportContext').textContent=`${monthLabel(m.month)}${partial?' · 오늘까지 누적':''} / ${selectedAI==='all'?'전체 AI':selectedAI} / ${selectedMethod==='web'?'비로그인 웹 (직접 입력 포함)':selectedMethod==='api'?'API':'전체 수집 방식'} · 실제 응답 ${m.complete.length}건 · 미수집 ${m.failed.length}건`;
+  $('reportContext').textContent=`${monthLabel(m.month)}${partial?' · 오늘까지 누적':''} / ${selectedAI==='all'?'전체 AI':selectedAI} / ${selectedMethod==='web'?'비로그인 웹 (직접 입력 포함)':selectedMethod==='api'?'API':'전체 수집 방식'} · 실제 응답 ${m.complete.length}건 · 미수집 ${m.failed.length}건 · 분류 검토 ${m.review.length}건`;
   $('monthlyRate').textContent=rate(m.rate);
   $('monthlyRateNote').textContent=`예바 추천 ${m.own.length}건 / 실제 응답 ${m.complete.length}건`;
   $('monthlyDelta').textContent=m.delta===null?'전월 비교 자료 없음':`전월 ${m.previous.length}건 대비 ${signed(m.delta)}${partial?' · 당월은 누적':''}`;
   $('monthlyRank').textContent=m.rank?m.rank.rank+'위':'—';
   $('monthlyRankNote').textContent=m.rank?`${m.ranks.length}곳 중 · ${m.rank.count}개 답변에서 추천`:m.complete.length?'예바 추천 기록이 없습니다':'수집 후 계산합니다';
   $('monthlySample').innerHTML=m.complete.length+'<small>건</small>';
-  $('monthlySampleNote').textContent=`${m.observedDays}일 관찰 · 미수집 ${m.failed.length}건 제외`;
-  $('monthlyCoverage').textContent=m.rows.length?`기록된 조사 중 수집 성공 ${(m.complete.length/m.rows.length*100).toFixed(1)}% · 미실행일 제외`:'저장된 조사 기록이 없습니다';
+  $('monthlySampleNote').textContent=`${m.observedDays}일 관찰 · 미수집 ${m.failed.length}건 · 분류 검토 ${m.review.length}건 제외`;
+  $('monthlyCoverage').textContent=m.rows.length?`기록된 조사 중 수집 성공 ${((m.complete.length+m.review.length)/m.rows.length*100).toFixed(1)}% · 미실행일 제외`:'저장된 조사 기록이 없습니다';
   renderChart(m);
-  $('monthlyProviders').innerHTML=m.provider.filter(p=>selectedAI==='all'||p.name===selectedAI).map((p,i)=>`<div class="provider-analysis"><div><span class="provider-label">${e(p.name)}</span><b>${rate(p.rate)}</b></div><span class="provider-rate-track"><i class="provider-${p.name.toLowerCase()}" style="width:${p.rate||0}%"></i></span><p>예바 ${p.mentions.length} / 실제 응답 ${p.answers.length}건 <span>미수집 ${p.failures.length}건</span></p></div>`).join('');
+  $('monthlyProviders').innerHTML=m.provider.filter(p=>selectedAI==='all'||p.name===selectedAI).map((p,i)=>`<div class="provider-analysis"><div><span class="provider-label">${e(p.name)}</span><b>${rate(p.rate)}</b></div><span class="provider-rate-track"><i class="provider-${p.name.toLowerCase()}" style="width:${p.rate||0}%"></i></span><p>예바 ${p.mentions.length} / 실제 응답 ${p.answers.length}건 <span>미수집 ${p.failures.length}건 · 분류 검토 ${p.review.length}건</span></p></div>`).join('');
   $('monthlyLeaders').innerHTML=m.ranks.length?m.ranks.slice(0,5).map(r=>`<button class="leader ${r.name==='예바치과'?'leader-ours':''}" data-hospital="${e(r.name)}"><span>${r.rank}</span><div><strong>${e(r.name)}</strong><span class="leader-track"><i style="width:${r.rate}%"></i></span></div><b>${rate(r.rate)}<small>${r.count}건</small></b></button>`).join(''):empty('추천 치과 기록이 없습니다');
   const first=insights[0];
   $('priorityAction').innerHTML=`<span class="priority-tag">${e(first.priority)}</span><h3>${e(first.title)}</h3><p>${e(first.fact)}</p><p class="action-first-step">${e(first.steps[0])}</p>`;
@@ -65,7 +66,7 @@ function showEvidence(title, records) {
   $('evidenceNote').textContent=`${records.length}건 · 저장된 원문을 그대로 표시합니다. AI 답변의 내용이 사실인지 별도로 확인하세요.`;
   $('evidenceBody').innerHTML=records.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
     let source='';try{const u=new URL(r.sourceUrl);if(['http:','https:'].includes(u.protocol))source=`<a href="${e(u.href)}" target="_blank" rel="noopener noreferrer">원문 출처 열기 ↗</a><small class="source-url">${e(r.sourceUrl)}</small>`;}catch{}
-    return `<article class="evidence-record"><header><strong>${e(r.ai)}</strong><span>${e(r.date)} · ${r.status==='완료'?'실제 응답':'미수집'}</span></header><p class="evidence-question">${e(r.question)}</p><p class="chart-note">${e(r.collectionMethod||'수집 방식 미기록')} · 예바 ${isOurRecommendation(r,snapshot)?'추천':'추천 없음'}</p><details><summary>${r.status==='실패'?'미수집 사유':'답변 원문'} 펼치기</summary><pre>${e(r.answer)}</pre></details>${source||'<small>저장된 출처 URL이 없습니다.</small>'}</article>`;
+    return `<article class="evidence-record"><header><strong>${e(r.ai)}</strong><span>${e(r.date)} · ${collectionLabel(r)}</span></header><p class="evidence-question">${e(r.question)}</p><p class="chart-note">${e(r.collectionMethod||'수집 방식 미기록')} · 예바 ${isClassificationReview(r)?'분류 검토':r.status==='실패'?'미집계':isOurRecommendation(r,snapshot)?'추천':'추천 없음'}</p><details><summary>${r.status==='실패'&&!isClassificationReview(r)?'미수집 사유':'답변 원문'} 펼치기</summary><pre>${e(r.answer)}</pre></details>${source||'<small>저장된 출처 URL이 없습니다.</small>'}</article>`;
   }).join('');
   if(!$('evidenceDialog').open)$('evidenceDialog').showModal();
 }

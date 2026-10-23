@@ -4,9 +4,17 @@ const defaults = {targetName:'예바치과교정과치과의원',aliases:default
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g,'');
 export function isExcludedHospital(name) {
   const value=normalize(name);
-  return /동래.*예바|예바.*동래|예바치과교정과의원/.test(value);
+  if (/동래.*예바|예바.*동래/.test(value)) return true;
+  // An explicit branch takes precedence over the abbreviated legal name.
+  return /예바치과교정과의원/.test(value) && !/서면/.test(value);
 }
 export function targetInText(text, settings=defaults) {
+  // Resolve each occurrence independently; a Dongnae mention elsewhere must
+  // never erase an explicitly named Seomyeon branch in the same answer.
+  const explicit = String(text || '').split(/\n|[.!?]/).some(line =>
+    /(?:서면\s*(?:권역\s*[:：]\s*)?예바(?:치과교정과치과의원|치과교정과의원|치과)?|예바(?:치과교정과치과의원|치과교정과의원|치과)?\s*\(?서면(?:점|역)?)/.test(line)
+    && !isExcludedHospital(line));
+  if (normalize(settings.targetName)===normalize(defaults.targetName) && explicit) return true;
   // Strip only excluded name occurrences, so a separate Seomyeon recommendation survives.
   const body=normalize(String(text || '').replace(/https?:\/\/\S+/gi,''))
     .replace(/동래(?:점)?[·:()\-]*예바(?:치과교정과치과의원|치과교정과의원|치과교정과|치과)?/g,'')
@@ -20,3 +28,9 @@ export function hasRecommendationEvidence(answer,hospitals,settings=defaults) {
   return targetInText(answer,settings) && hospitals.some(name=>!isExcludedHospital(name)&&targetInText(name,settings));
 }
 
+export function isClassificationReview(record) {
+  return record.status === '실패' && /^\[자동 분류 검토 필요:/.test(record.answer || '');
+}
+export function collectionLabel(record) {
+  return isClassificationReview(record) ? '수집 완료 · 분류 검토' : record.status === '완료' ? '수집 완료' : '미수집';
+}

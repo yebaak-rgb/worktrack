@@ -1,4 +1,4 @@
-import {targetInText, hasRecommendationEvidence, isExcludedHospital} from './radar-classification.js?v=20261022-branches';
+import {targetInText, hasRecommendationEvidence, isExcludedHospital, isClassificationReview} from './radar-classification.js?v=20261023-classification';
 
 export const AIS = ['ChatGPT', 'Gemini'];
 export const percent = (n, d) => d ? n / d * 100 : null;
@@ -53,7 +53,8 @@ export function buildMonth(records, settings, {month = koreaDate().slice(0,7), a
     (method === 'all' || (method === 'api' ? r.collectionMethod === 'API' : ['비로그인 웹','수동 입력 · 비로그인 웹'].includes(r.collectionMethod))));
   const rows = scoped.filter(r => r.date.startsWith(month));
   const complete = rows.filter(r => r.status === '완료');
-  const failed = rows.filter(r => r.status === '실패');
+  const review = rows.filter(isClassificationReview);
+  const failed = rows.filter(r => r.status === '실패' && !isClassificationReview(r));
   const previous = scoped.filter(r => r.date.startsWith(shiftMonth(month,-1)) && r.status === '완료');
   const own = complete.filter(r => isOurRecommendation(r,settings));
   const prevOwn = previous.filter(r => isOurRecommendation(r,settings));
@@ -67,7 +68,7 @@ export function buildMonth(records, settings, {month = koreaDate().slice(0,7), a
   const provider = AIS.map(name => {
     const answers = complete.filter(r => r.ai === name), failures = failed.filter(r => r.ai === name);
     const mentions = answers.filter(r => isOurRecommendation(r,settings));
-    return {name, answers, failures, mentions, rate:percent(mentions.length,answers.length)};
+    return {name, answers, failures, review:review.filter(r=>r.ai===name), mentions, rate:percent(mentions.length,answers.length)};
   });
   const questions = [...new Set([...settings.questions, ...rows.map(r => r.question)])].map(question => {
     const answers = complete.filter(r => r.question === question);
@@ -81,7 +82,7 @@ export function buildMonth(records, settings, {month = koreaDate().slice(0,7), a
       rate:percent(answers.filter(r => isOurRecommendation(r,settings)).length,answers.length)};
   });
   const rate = percent(own.length, complete.length), previousRate = percent(prevOwn.length,previous.length);
-  return {month, today, ai, method, rows, complete, failed, previous, own, ranks, provider, questions, days,
+  return {month, today, ai, method, rows, complete, failed, review, previous, own, ranks, provider, questions, days,
     rate, previousRate, delta:rate !== null && previousRate !== null ? rate-previousRate : null,
     rank:ranks.find(r => r.name === '예바치과'), observedDays:new Set(complete.map(r => r.date)).size,
     aliases:ranks.filter(r => r.aliases.length > 1),
@@ -90,6 +91,7 @@ export function buildMonth(records, settings, {month = koreaDate().slice(0,7), a
 }
 export function buildInsights(model, settings) {
   const m = model, items = [];
+  if (m.review.length) items.push({priority:'우선 점검',type:'quality',title:'수집된 답변의 분류를 확인하세요',fact:`답변을 받은 ${m.review.length}건은 치과명·지점 분류 검토 중입니다. 미수집이나 추천 없음이 아니며, 판정 전에는 추천률에서 제외합니다.`,steps:['저장된 원문에서 추천 치과와 지점을 확인하세요.','새 질문을 보내지 말고 기존 원문을 기준으로 분류만 수정하세요.'],owner:'조사 담당',check:'분류 검토 0건',records:m.review});
   if (m.failed.length) items.push({priority:'우선 점검',type:'collection',title:'미수집 구간부터 확인하세요',
     fact:`저장된 조사 ${m.rows.length}건 중 ${m.failed.length}건이 미수집입니다. 실패 응답은 추천률에서 제외했습니다.`,
     steps:['미수집 사유에서 로그인 요구·접근 제한 여부를 확인하세요.','수집 가능한 비로그인 서비스는 같은 질문으로 다시 확인하고 원문을 입력하세요. 로그인이나 CAPTCHA는 우회하지 마세요.'],
