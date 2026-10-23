@@ -36,8 +36,16 @@ export function targetInText(text, settings=defaults) {
   return [settings.targetName,...safeAliases,...String(settings.aliases || '').split(',')]
     .map(normalize).filter(alias=>alias&&!isExcludedHospital(alias)&&!['예바','yeba','예바치과','예바치과교정과'].includes(alias)).some(alias=>body.includes(alias));
 }
+export function hasSeomyeonContext(answer) {
+  const body=String(answer || '');
+  return /(?:부산\s*)?서면\s*지역에서/.test(body.slice(0,300)) && /추천/.test(body.slice(0,300))
+    && /(?:^|\n)\s*예바치과교정과의원\s*(?:\n|$)/.test(body)
+    && !/동래|온천동|명륜|051[- ]?791/.test(body);
+}
 export function hasRecommendationEvidence(answer,hospitals,settings=defaults) {
-  return targetInText(answer,settings) && hospitals.some(name=>!isExcludedHospital(name)&&targetInText(name,settings));
+  const contextual=normalize(settings.targetName)===normalize(defaults.targetName) && hasSeomyeonContext(answer)
+    && hospitals.some(name=>normalize(name)==='예바치과교정과의원');
+  return contextual || targetInText(answer,settings) && hospitals.some(name=>!isExcludedHospital(name)&&targetInText(name,settings));
 }
 
 export function isClassificationReview(record) {

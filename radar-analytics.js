@@ -1,4 +1,4 @@
-import {targetInText, hasRecommendationEvidence, isExcludedHospital, isClassificationReview} from './radar-classification.js?v=20261023-october-audit';
+import {targetInText, hasRecommendationEvidence, isExcludedHospital, isClassificationReview, hasSeomyeonContext} from './radar-classification.js?v=20261023-context';
 
 export const AIS = ['ChatGPT', 'Gemini'];
 export const percent = (n, d) => d ? n / d * 100 : null;
@@ -7,9 +7,10 @@ export function shiftMonth(month, offset) {
   const [y, m] = month.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1 + offset, 1)).toISOString().slice(0, 7);
 }
-export function canonicalHospital(name, settings) {
+export function canonicalHospital(name, settings, answer='') {
   const value = String(name || '').normalize('NFKC').trim();
   if (!value) return '';
+  if (value.replace(/\s+/g,'')==='예바치과교정과의원' && hasSeomyeonContext(answer) && hasRecommendationEvidence(answer,[value],settings)) return '예바치과';
   if (isExcludedHospital(value)) return '동래예바치과';
   if (targetInText(value, settings)) return '예바치과';
   // Only typographic/formal suffix variants are merged. Branch words stay intact.
@@ -31,7 +32,7 @@ export function isOurRecommendation(r, settings) {
   return r.status === '완료' && r.ourMention === true && hasRecommendationEvidence(r.answer, r.hospitals || [], settings);
 }
 export function hospitalNames(r, settings) {
-  return [...new Set((r.hospitals || []).map(h => canonicalHospital(h, settings)).filter(Boolean))]
+  return [...new Set((r.hospitals || []).map(h => canonicalHospital(h, settings,r.answer)).filter(Boolean))]
     .filter(name => name !== '예바치과' || isOurRecommendation(r, settings));
 }
 function ranking(rows, settings) {
@@ -39,7 +40,7 @@ function ranking(rows, settings) {
   for (const r of rows) for (const name of hospitalNames(r, settings)) {
     if (!map.has(name)) map.set(name, {name, count:0, records:[], aliases:new Set(), byAI:Object.fromEntries(AIS.map(ai => [ai,0]))});
     const item = map.get(name); item.count++; item.records.push(r); item.byAI[r.ai]++;
-    (r.hospitals || []).filter(h => canonicalHospital(h, settings) === name).forEach(h => item.aliases.add(h));
+    (r.hospitals || []).filter(h => canonicalHospital(h, settings,r.answer) === name).forEach(h => item.aliases.add(h));
   }
   const result = [...map.values()].sort((a,b) => b.count - a.count || a.name.localeCompare(b.name,'ko'));
   result.forEach((item,i) => {

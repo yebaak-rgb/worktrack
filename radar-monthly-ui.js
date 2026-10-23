@@ -1,5 +1,5 @@
-import {isClassificationReview, collectionLabel} from './radar-classification.js?v=20261023-october-audit';
-import {AIS, buildMonth, buildInsights, koreaDate, shiftMonth, isOurRecommendation} from './radar-analytics.js?v=20261023-october-audit';
+import {isClassificationReview, collectionLabel} from './radar-classification.js?v=20261023-context';
+import {AIS, buildMonth, buildInsights, koreaDate, shiftMonth, isOurRecommendation} from './radar-analytics.js?v=20261023-context';
 const $ = id => document.getElementById(id);
 const e = value => String(value ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const rate = value => value === null ? '—' : value.toFixed(1)+'%';

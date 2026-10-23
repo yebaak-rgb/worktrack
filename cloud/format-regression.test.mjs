@@ -58,3 +58,13 @@ test('generic headings and description prefixes do not become separate clinics',
  const r=classify('교정 전문의 중심 치과\n추가로 비교할 만한 치과\n투명교정 진료가 가능한 치과\n정밀검사와 유지관리가 잘 갖춰진 치과\n해운대 센텀 지역에 위치한 연세센텀치과 교정과치과의원\n연세센텀치과 교정과치과의원',settings);
  assert.deepEqual(r.hospitals,['연세센텀치과 교정과치과의원']);
 });
+
+test('explicit Seomyeon recommendation introduction resolves abbreviated card, including rankings',()=>{
+ const answer='부산 서면 지역에서 치아교정을 고려하시는군요. 대표 치과들과 추천 이유는 다음과 같습니다.\n예바치과교정과의원\n전문의 진료';
+ const r=classify(answer,settings);
+ assert.equal(r.our_mention,true);assert.equal(r.needsReview,false);
+ const m=buildMonth([{id:'context',date:'2026-10-04',ai:'Gemini',question:'추천',answer,hospitals:r.hospitals,ourMention:true,status:'완료',collectionMethod:'비로그인 웹'}],settings,{month:'2026-10',today:'2026-10-23'});
+ assert.equal(m.own.length,1);assert.equal(m.ranks[0].name,'예바치과');
+ assert.equal(classify(answer+'\n동래구 온천동',settings).our_mention,false);
+ assert.equal(hasRecommendationEvidence(answer,['다른치과'],settings),false);
+});
