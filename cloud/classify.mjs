@@ -1,12 +1,12 @@
 // Conservative name extraction from standalone clinic headings/list items.
 // Full source text remains unchanged for later review in the dashboard.
-import {hasRecommendationEvidence, targetInText, branchQualifiedNames} from '../radar-classification.js?v=20261023-context';
+import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRecommendationNames} from '../radar-classification.js?v=20261026-network';
 export function classify(answer, settings) {
   const hospitals = [];
-  const qualified=branchQualifiedNames(answer);
+  const qualified=[...branchQualifiedNames(answer),...networkRecommendationNames(answer)];
   for (const raw of answer.split('\n')) {
     // Tables expose cells separated by tabs; the first cell is the clinic.
-    let line = raw.split('\t')[0].replace(/^\s*(?:\d+[.)]\s*|[-*•]\s*)/, '').replaceAll('**', '').trim();
+    let line = raw.split('\t')[0].replace(/^\s*(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)/, '').replaceAll('**', '').trim();
     const parts=line.split(/\s+[—–]\s+|\s*[:：]\s*/);
     const regionFirst=parts.length>1&&!/치과|orthodont|othodont|dental/i.test(parts[0])&&/치과|orthodont|othodont|dental/i.test(parts[1]);
     const regionalHeading=regionFirst&&/동래/.test(parts[0])?line:null;

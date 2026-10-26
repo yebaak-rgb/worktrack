@@ -2,6 +2,19 @@
 export const defaultAliases = '서면 예바, 서면예바, 예바치과 서면점, YEBA Orthodontics Clinic, YEBA Othodontics';
 const defaults = {targetName:'예바치과교정과치과의원',aliases:defaultAliases};
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g,'');
+// Network recommendations include Seomyeon; a named other branch alone does not.
+export function isYebaNetworkName(name) {
+  const value=normalize(name);
+  const clinic='예바(?:치과(?:교정과)?(?:치과)?(?:의원)?)?';
+  if (new RegExp('^'+clinic+'(?:치과)?(?:네트워크|network)$','i').test(value)) return true;
+  const branches=value.match(new RegExp('^'+clinic+'\\(([^)]+)\\)$'));
+  if (!branches) return false;
+  const names=branches[1].split(/[\/·,、]/);
+  return names.length>1 && names.includes('서면점') && names.every(n=>/^[가-힣]{1,12}(?:점|지점)$/.test(n));
+}
+export function networkRecommendationNames(text) {
+  return [...new Set(String(text||'').split('\n').map(line=>line.replace(/^\s*(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)/,'').replaceAll('**','').trim()).filter(isYebaNetworkName))];
+}
 // Preserve branch labels that the rendered table places on a separate line.
 // Return source substrings, never inferred or invented clinic names.
 export function branchQualifiedNames(text) {
@@ -14,12 +27,14 @@ export function branchQualifiedNames(text) {
 }
 export function isExcludedHospital(name) {
   const value=normalize(name);
+  if (isYebaNetworkName(name)) return false;
   if (branchQualifiedNames(name).some(h=>normalize(h)===value)) return false;
   if (/동래.*예바|예바.*동래/.test(value)) return true;
   // An explicit branch takes precedence over the abbreviated legal name.
   return /예바치과교정과의원/.test(value) && !/서면/.test(value);
 }
 export function targetInText(text, settings=defaults) {
+  if (normalize(settings.targetName)===normalize(defaults.targetName) && networkRecommendationNames(text).length) return true;
   if (normalize(settings.targetName)===normalize(defaults.targetName) && branchQualifiedNames(text).length) return true;
   // Resolve each occurrence independently; a Dongnae mention elsewhere must
   // never erase an explicitly named Seomyeon branch in the same answer.

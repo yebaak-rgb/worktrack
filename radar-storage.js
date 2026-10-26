@@ -1,5 +1,5 @@
 // Shares the existing worktrack session; no admin key, new login, or browser-only record store.
-import {hasRecommendationEvidence, defaultAliases} from './radar-classification.js?v=20261023-context';
+import {hasRecommendationEvidence, defaultAliases} from './radar-classification.js?v=20261026-network';
 const AI = new Set(['ChatGPT','Gemini']);
 const DEFAULT_SETTINGS = {autoRun:false,scheduleTime:'09:30',targetName:'예바치과교정과치과의원',aliases:defaultAliases,questions:[
   '부산에서 교정치과 잘하는 곳 추천해줘. 그리고 이유도 알려줘.',
