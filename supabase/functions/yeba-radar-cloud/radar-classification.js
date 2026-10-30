@@ -28,12 +28,14 @@ export function branchQualifiedNames(text) {
 export function isExcludedHospital(name) {
   const value=normalize(name);
   if (isYebaNetworkName(name)) return false;
+  if (addressQualifiedNames(name).length) return false;
   if (branchQualifiedNames(name).some(h=>normalize(h)===value)) return false;
   if (/동래.*예바|예바.*동래/.test(value)) return true;
   // An explicit branch takes precedence over the abbreviated legal name.
   return /예바치과교정과의원/.test(value) && !/서면/.test(value);
 }
 export function targetInText(text, settings=defaults) {
+  if (normalize(settings.targetName)===normalize(defaults.targetName)&&addressQualifiedNames(text).length) return true;
   if (normalize(settings.targetName)===normalize(defaults.targetName) && networkRecommendationNames(text).length) return true;
   if (normalize(settings.targetName)===normalize(defaults.targetName) && branchQualifiedNames(text).length) return true;
   // Resolve each occurrence independently; a Dongnae mention elsewhere must
@@ -57,7 +59,26 @@ export function hasSeomyeonContext(answer) {
     && /(?:^|\n)\s*예바치과교정과의원\s*(?:\n|$)/.test(body)
     && !/동래|온천동|명륜|051[- ]?791/.test(body);
 }
+export function addressQualifiedNames(answer) {
+  const blocks=String(answer||'').split(/\n(?=\s*\d+[.)]\s+)/);
+  return blocks.flatMap(block=>{
+    const match=block.match(/^\s*\d+[.)]\s*([^\n]+)/);
+    if (!match||!/예바/.test(match[1])||/동래/.test(match[1])) return [];
+    const body=block.slice(match[0].length,match[0].length+450).split(/\n\s*(?:보기 재설정|지도 펼치기|병원 위치|위치 비교)/)[0];
+    if (/동래구|동래로|온천동|명륜|051[- ]?791[- ]?2804/.test(body)) return [];
+    const address=body.split('\n').find(line=>/중앙대로\s*736(?:\D|$)/.test(line)&&/서면|부산진구|경암센터|051[- ]?809[- ]?2861/.test(line));
+    if (!address) return [];
+    const end=block.indexOf(address,match[0].length)+address.length;
+    const evidence=block.slice(0,end).trim();
+    return evidence.length<=200?[evidence]:[];
+  });
+}
+export function hasSeomyeonAddressEvidence(answer,hospitals) {
+  return hospitals.some(name=>/예바|yeba/i.test(name))&&addressQualifiedNames(answer).length>0;
+}
+
 export function hasRecommendationEvidence(answer,hospitals,settings=defaults) {
+  if (normalize(settings.targetName)===normalize(defaults.targetName)&&hasSeomyeonAddressEvidence(answer,hospitals)) return true;
   const contextual=normalize(settings.targetName)===normalize(defaults.targetName) && hasSeomyeonContext(answer)
     && hospitals.some(name=>normalize(name)==='예바치과교정과의원');
   return contextual || targetInText(answer,settings) && hospitals.some(name=>!isExcludedHospital(name)&&targetInText(name,settings));
