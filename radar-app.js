@@ -1,4 +1,4 @@
-import {classify} from './cloud/classify.mjs?v=20261030-address';
+import {classify} from './cloud/classify.mjs?v=20261105-regional';
 import {storageRequest} from './radar-storage.js?v=20261030-address';
 import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases, isClassificationReview, collectionLabel} from './radar-classification.js?v=20261030-address';
 import {isOurRecommendation} from './radar-analytics.js?v=20261030-address';
