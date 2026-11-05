@@ -11,6 +11,17 @@ async function blocked(page) {
     || await page.locator('iframe[title*="challenge" i], iframe[title*="captcha" i]').first().isVisible().catch(() => false)
     || await page.getByRole('dialog').filter({ hasText: /로그인|Sign in|Log in/i }).first().isVisible().catch(() => false);
 }
+export function extractChatGPTBodyAnswer(body, question) {
+  // New anonymous ChatGPT pages omit the assistant role and Korean speaker label.
+  // Require the exact submitted question and the completed-page footer.
+  const start = body.indexOf(question);
+  if (start < 0 || body.indexOf(question, start + question.length) >= 0) return '';
+  const end = body.indexOf('ChatGPT는 AI라 실수할 수 있습니다.', start + question.length);
+  if (end < 0) return '';
+  const answer = body.slice(start + question.length, end).trim();
+  return answer.length > 40 ? answer : '';
+}
+
 export async function collectAnswer(browser, provider, question, output, label) {
   const context = await browser.newContext({ locale: 'ko-KR', timezoneId: 'Asia/Seoul', viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
@@ -51,6 +62,7 @@ export async function collectAnswer(browser, provider, question, output, label) 
           text = text.trim();
         }
       }
+      if (!text && provider.name === 'ChatGPT') text = extractChatGPTBodyAnswer(visibleBody, question);
       if (!text) continue;
       if (text !== previous) { previous = text; stableSince = Date.now(); }
       const generating = await page.getByRole('button', { name: /Stop generating|Stop response|응답 중지|생성 중지|답변 중지/i }).first().isVisible().catch(() => false);
