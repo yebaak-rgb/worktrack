@@ -4,7 +4,16 @@ import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRe
 export function classify(answer, settings) {
   const hospitals = [];
   const qualified=[...addressQualifiedNames(answer),...branchQualifiedNames(answer),...networkRecommendationNames(answer)];
-  for (const raw of answer.split('\n')) {
+  const lines = answer.split('\n').flatMap(raw => {
+    // Explicit regional recommendation lists can contain several clinics on one line.
+    const list = raw.replaceAll('**', '').match(/^\s*([가-힣/·\s]+\s지역)\s*[:：]\s*(.+)$/);
+    if (!list) return [raw];
+    return [raw, ...list[2].split(/[,，]/).map(name => {
+      const clean = name.replace(/\s+등\s*$/, '').trim();
+      return /동래/.test(list[1]) ? list[1] + ': ' + clean : clean;
+    })];
+  });
+  for (const raw of lines) {
     // Tables expose cells separated by tabs; the first cell is the clinic.
     let line = raw.split('\t')[0].replace(/^\s*(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)/, '').replaceAll('**', '').trim();
     const parts=line.split(/\s+[—–]\s+|\s*[:：]\s*/);
