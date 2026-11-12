@@ -4,7 +4,18 @@ import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRe
 export function classify(answer, settings) {
   const hospitals = [];
   const qualified=[...addressQualifiedNames(answer),...branchQualifiedNames(answer),...networkRecommendationNames(answer)];
-  const lines = answer.split('\n').flatMap(raw => {
+  // Only expand explicit clinic examples in list headings/table cells, not prose mentions.
+  const exampleLines = answer.split('\n').flatMap(raw => raw.replaceAll('**', '').split(/\t|\|/).flatMap(cell => {
+    const clean = cell.replace(/^\s*(?:#{1,6}\s*)?(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)?/, '').trim();
+    if (/(?:비추천|추천하지|추천하지는|추천하지\s*않|제외|가상|가짜|잘못된|나쁜)/.test(clean)) return [];
+    const example = clean.match(/^대표\s*예\s*[:：]\s*(.+)$/)
+      || clean.match(/^[^()]{0,60}치과[^()]{0,30}\(\s*예\s*[:：]\s*(.+)\)\s*$/);
+    if (!example) return [];
+    // Split commas only outside location parentheses.
+    return (example[1].match(/(?:[^,，()]|\([^)]*\))+/g) || [])
+      .map(name => name.replace(/\s+등\s*$/, '').trim());
+  }));
+  const lines = [...answer.split('\n'), ...exampleLines].flatMap(raw => {
     // Explicit regional recommendation lists can contain several clinics on one line.
     const list = raw.replaceAll('**', '').match(/^\s*([가-힣/·\s]+\s지역)\s*[:：]\s*(.+)$/);
     if (!list) return [raw];
@@ -43,3 +54,4 @@ export function classify(answer, settings) {
   const ambiguousBranch=!own && hospitals.includes('예바치과교정과의원') && /서면/.test(answer) && !/동래|온천동|명륜|051[- ]?791/.test(answer);
   return { hospitals: hospitals.slice(0, 20), our_mention: own, needsReview: hospitals.length === 0 || hospitals.length > 20 || ambiguousBranch || (targetInText(answer,settings)&&!own) };
 }
+
