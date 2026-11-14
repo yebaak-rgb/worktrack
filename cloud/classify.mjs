@@ -1,6 +1,6 @@
 // Conservative name extraction from standalone clinic headings/list items.
 // Full source text remains unchanged for later review in the dashboard.
-import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRecommendationNames, addressQualifiedNames} from '../radar-classification.js?v=20261030-address';
+import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRecommendationNames, addressQualifiedNames, hasSeomyeonTableEntry} from '../radar-classification.js?v=20261114-records';
 export function classify(answer, settings) {
   const hospitals = [];
   const qualified=[...addressQualifiedNames(answer),...branchQualifiedNames(answer),...networkRecommendationNames(answer)];
@@ -41,7 +41,7 @@ export function classify(answer, settings) {
     // Descriptive prefixes and multi-clinic comparison cells are not names.
     line=line.replace(/^.*(?:위치한|싶다면|편하다면)\s+/, '');
     if (/\s·\s/.test(line)) continue;
-    const name=regionalHeading||line;
+    const name=hasSeomyeonTableEntry(raw)?'예바치과교정과치과의원':regionalHeading||line;
     if (!hospitals.includes(name)) hospitals.push(name);
   }
   for (const name of qualified) {
