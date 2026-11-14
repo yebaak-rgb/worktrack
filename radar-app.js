@@ -1,8 +1,8 @@
-import {classify} from './cloud/classify.mjs?v=20261105-regional';
-import {storageRequest} from './radar-storage.js?v=20261030-address';
-import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases, isClassificationReview, collectionLabel} from './radar-classification.js?v=20261030-address';
-import {isOurRecommendation} from './radar-analytics.js?v=20261030-address';
-import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261030-address';
+import {classify} from './cloud/classify.mjs?v=20261114-records';
+import {storageRequest} from './radar-storage.js?v=20261114-records';
+import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases, isClassificationReview, collectionLabel} from './radar-classification.js?v=20261114-records';
+import {isOurRecommendation} from './radar-analytics.js?v=20261114-records';
+import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261114-records';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
@@ -136,8 +136,10 @@ function renderOverview() {
 function renderQuestions() {
   $('#questionList').innerHTML = state.questions.map((q,i)=>`<div class="question-item"><span>Q${i+1}</span><p>${escapeHTML(q)}</p></div>`).join('');
   $('#settingsQuestions').innerHTML = state.questions.map((q,i)=>`<div class="editable-question"><span>Q${i+1}</span><input aria-label="질문 ${i+1}" value="${escapeHTML(q)}"><button aria-label="질문 ${i+1} 삭제" data-remove-question="${i}">×</button></div>`).join('');
+  const selectedHistoryQuestion = $('#historyQuestion').value;
   $('#historyQuestion').innerHTML = '<option value="all">전체 질문</option>' + state.questions.map((q,i)=>`<option value="${i}">질문 ${i+1}</option>`).join('');
-  $$('[data-remove-question]').forEach(button=>button.addEventListener('click',()=>{ if(state.questions.length===1)return toast('질문은 한 개 이상 필요합니다.'); settingsDirty=true;state.questions.splice(Number(button.dataset.removeQuestion),1); renderQuestions(); }));
+  if ($('#historyQuestion').querySelector(`option[value="${selectedHistoryQuestion}"]`)) $('#historyQuestion').value = selectedHistoryQuestion;
+  $('[data-remove-question]').forEach(button=>button.addEventListener('click',()=>{ if(state.questions.length===1)return toast('질문은 한 개 이상 필요합니다.'); settingsDirty=true;state.questions.splice(Number(button.dataset.removeQuestion),1); renderQuestions(); }));
 }
 function renderQueue(activeProvider = '') {
   const today = completedRecords().filter(record => record.date === localISO());
@@ -162,6 +164,66 @@ function renderResponses() {
     return `<article class="response-card"><header><i class="ai-icon ${p.cls}">${p.icon}</i><strong>${escapeHTML(r.ai)}</strong><time>${escapeHTML(stamp)}</time></header><p>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · ${escapeHTML(method)} · ${collectionLabel(r)}</p><p>${escapeHTML(r.answer)}</p><details><summary>응답 전문 · 미수집 사유</summary><p class="response-full">${escapeHTML(r.answer)}</p>${source}</details><div class="hospital-tags">${r.hospitals.map(h=>`<span class="${!isExcludedHospital(h)&&targetInText(h,state)?'ours':''}">${escapeHTML(h)}</span>`).join('')}</div></article>`;
   }).join('') || '<p class="muted">아직 오늘 수집한 응답이 없습니다.</p>';
 }
+function renderHistoryOriginal(container, answer) {
+  const lines = answer.split(/\r?\n/);
+  const headerIndex = lines.findIndex(line => /^(?:치과명|병원명|치과)\s*\t/.test(line));
+  const headers = lines[headerIndex]?.split('\t');
+  container.textContent = '';
+  const appendText = text => {
+    const pre = document.createElement('pre');
+    pre.className = 'history-original-text';
+    pre.textContent = text;
+    container.append(pre);
+  };
+  if (!headers || headers.length < 2 || !lines[headerIndex + 1]?.includes('\t')) {
+    appendText(answer);
+    return;
+  }
+  const table = document.createElement('table');
+  const headerRow = table.createTHead().insertRow();
+  for (const title of headers) {
+    const th = document.createElement('th');
+    th.scope = 'col';
+    th.textContent = title;
+    headerRow.append(th);
+  }
+  const body = table.createTBody();
+  let index = headerIndex + 1;
+  while (index < lines.length && lines[index].includes('\t')) {
+    const fields = lines[index++].split('\t');
+    const cells = headers.map((_, column) => column === headers.length - 1
+      ? fields.slice(column).join('\t') : fields[column] || '');
+    const continuationColumn = Math.min(2, cells.length - 1);
+    while (index < lines.length && (!lines[index].trim() || (fields.length === 3 && !fields[2].trim() && /^\s*[•▪◦-]\s/.test(lines[index])))) {
+      if (lines[index].trim()) {
+        cells[continuationColumn] += (cells[continuationColumn] ? '\n' : '') + lines[index];
+      }
+      index++;
+    }
+    const row = body.insertRow();
+    for (const cell of cells) row.insertCell().textContent = cell;
+  }
+  appendText(lines.slice(0, headerIndex).join('\n'));
+  const wrapper = document.createElement('div');
+  wrapper.className = 'table-wrap history-original-table';
+  wrapper.append(table);
+  container.append(wrapper);
+  appendText(lines.slice(index).join('\n'));
+}
+let historyRows=[];
+const originalDialog=$('#historyOriginalDialog');
+$('#recordsBody').addEventListener('click', event=>{
+  const button=event.target.closest('[data-history-original]');
+  if (!button) return;
+  const record=historyRows[Number(button.dataset.historyOriginal)];
+  if (!record) return;
+  $('#historyOriginalMeta').textContent=`${record.date} · ${record.ai} · 질문 ${Math.max(1,state.questions.indexOf(record.question)+1)}`;
+  $('#historyOriginalQuestion').textContent=record.question;
+  const answer=$('#historyOriginalAnswer');
+  renderHistoryOriginal(answer, record.answer);
+  originalDialog.showModal();
+  answer.scrollTop=0;
+});
 function renderRecords() {
   const ai=$('#historyAI').value, q=$('#historyQuestion').value, days=$('#historyRange').value;
   const since=new Date(); if(days!=='all') since.setDate(since.getDate()-Number(days));
@@ -171,7 +233,8 @@ function renderRecords() {
   const aiRates=providers.map(p=>{const rows=completed.filter(r=>r.ai===p.name);return{name:p.name,rate:rows.length?rows.filter(r=>isOurRecommendation(r,state)).length/rows.length:0}}).sort((a,b)=>b.rate-a.rate);
   $('#filteredResponses').textContent=filtered.length; $('#filteredShare').textContent=`${share.toFixed(1)}%`; $('#bestAI').textContent=aiRates[0]?.name||'-';
   $('#recordCount').textContent=`전체 ${filtered.length}건 · 질문에서 원문 펼치기`;
-  $('#recordsBody').innerHTML=filtered.slice().reverse().map(r=>`<tr><td>${r.date}</td><td>${escapeHTML(r.ai)}</td><td><details><summary>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · 원문 보기</summary><p>${escapeHTML(r.question)}</p><p style="white-space:pre-wrap">${escapeHTML(r.answer)}</p></details></td><td>${r.hospitals.map(escapeHTML).join(', ')}</td><td class="${isOurRecommendation(r,state)?'yes-mark':'no-mark'}">${isOurRecommendation(r,state)?'YES':'—'}</td><td><span class="mini-state">${escapeHTML(collectionLabel(r))}</span></td></tr>`).join('')||'<tr><td colspan="6">조건에 맞는 기록이 없습니다.</td></tr>';
+  historyRows=filtered.slice().reverse();
+  $('#recordsBody').innerHTML=historyRows.map((r,i)=>`<tr><td>${r.date}</td><td>${escapeHTML(r.ai)}</td><td><button type="button" class="text-button" data-history-original="${i}">질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · 원문 보기</button></td><td>${r.hospitals.map(escapeHTML).join(', ')}</td><td class="${isOurRecommendation(r,state)?'yes-mark':'no-mark'}">${isOurRecommendation(r,state)?'YES':'—'}</td><td><span class="mini-state">${escapeHTML(collectionLabel(r))}</span></td></tr>`).join('')||'<tr><td colspan="6">조건에 맞는 기록이 없습니다.</td></tr>';
 }
 function hydrateSettings() {
   $('#autoRun').checked=state.autoRun; $('#scheduleTime').value=state.scheduleTime; $('#targetName').value=state.targetName; $('#targetAliases').value=state.aliases;
