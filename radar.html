@@ -13,6 +13,12 @@
   <link rel="stylesheet" href="./radar-styles.css" />
   <link rel="stylesheet" href="./radar-improvements.css?v=20261010" />
   <link rel="stylesheet" href="./radar-monthly.css?v=20260919-layout" />
+  <style>
+    #historyOriginalAnswer {max-height:56vh;overflow:auto}
+    .history-original-text {white-space:pre-wrap;overflow-wrap:anywhere;tab-size:4;font:inherit}
+    .history-original-table {margin-block:1rem}
+    .history-original-table td {white-space:pre-line;vertical-align:top}
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -226,7 +232,13 @@
     <div class="dialog-header"><h2 id="evidenceTitle">근거 응답</h2><button type="button" class="dialog-close" id="closeEvidence" aria-label="근거 응답 닫기">×</button></div>
     <p id="evidenceNote"></p><div id="evidenceBody"></div>
   </dialog>
-  <script type="module" src="./radar-app.js?v=20261105-regional"></script>
+  <dialog id="historyOriginalDialog" class="evidence-dialog" aria-labelledby="historyOriginalTitle" style="width:min(56rem,calc(100% - 2rem));max-height:85vh;box-sizing:border-box">
+    <div class="dialog-header"><h2 id="historyOriginalTitle">답변 원문</h2><form method="dialog"><button class="dialog-close" aria-label="답변 원문 닫기">×</button></form></div>
+    <p id="historyOriginalMeta" class="muted"></p>
+    <p id="historyOriginalQuestion" class="evidence-question"></p>
+    <div id="historyOriginalAnswer" tabindex="0" role="region" aria-label="저장된 답변 원문"></div>
+  </dialog>
+  <script type="module" src="./radar-app.js?v=20261114-records"></script>
   <script type="module" src="./radar-improvements.js?v=20261030-address"></script>
 </body>
 </html>
