@@ -139,7 +139,7 @@ function renderQuestions() {
   const selectedHistoryQuestion = $('#historyQuestion').value;
   $('#historyQuestion').innerHTML = '<option value="all">전체 질문</option>' + state.questions.map((q,i)=>`<option value="${i}">질문 ${i+1}</option>`).join('');
   if ($('#historyQuestion').querySelector(`option[value="${selectedHistoryQuestion}"]`)) $('#historyQuestion').value = selectedHistoryQuestion;
-  $('[data-remove-question]').forEach(button=>button.addEventListener('click',()=>{ if(state.questions.length===1)return toast('질문은 한 개 이상 필요합니다.'); settingsDirty=true;state.questions.splice(Number(button.dataset.removeQuestion),1); renderQuestions(); }));
+  $$('[data-remove-question]').forEach(button=>button.addEventListener('click',()=>{ if(state.questions.length===1)return toast('질문은 한 개 이상 필요합니다.'); settingsDirty=true;state.questions.splice(Number(button.dataset.removeQuestion),1); renderQuestions(); }));
 }
 function renderQueue(activeProvider = '') {
   const today = completedRecords().filter(record => record.date === localISO());
