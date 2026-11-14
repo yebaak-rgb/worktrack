@@ -34,7 +34,15 @@ export function isExcludedHospital(name) {
   // An explicit branch takes precedence over the abbreviated legal name.
   return /예바치과교정과의원/.test(value) && !/서면/.test(value);
 }
+export function hasSeomyeonTableEntry(text) {
+  return String(text || '').split('\n').some(line => {
+    const [clinic, location] = line.replaceAll('**', '').split('\t').map(cell => cell.trim());
+    return /^예바치과의원$/.test(clinic) &&
+      /^(?:부산(?:진구)?\s+)?서면(?:역|점)?(?:\s+인근)?$/.test(location || '');
+  });
+}
 export function targetInText(text, settings=defaults) {
+  if (normalize(settings.targetName)===normalize(defaults.targetName) && hasSeomyeonTableEntry(text)) return true;
   if (normalize(settings.targetName)===normalize(defaults.targetName)&&addressQualifiedNames(text).length) return true;
   if (normalize(settings.targetName)===normalize(defaults.targetName) && networkRecommendationNames(text).length) return true;
   if (normalize(settings.targetName)===normalize(defaults.targetName) && branchQualifiedNames(text).length) return true;
