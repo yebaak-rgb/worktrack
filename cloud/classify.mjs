@@ -7,22 +7,37 @@ export function classify(answer, settings) {
   // Only expand explicit clinic examples in list headings/table cells, not prose mentions.
   const answerLines = answer.split('\n');
   let precedingLine = '';
+  const expandedLines = new Set();
   const exampleLines = answerLines.flatMap(raw => {
     const followsClinicCategory = /치과/.test(precedingLine) && !/[.!?]$|비추천|제외|추천하지/.test(precedingLine);
     if (raw.trim()) precedingLine = raw.trim();
     return raw.replaceAll('**', '').split(/\t|\|/).flatMap(cell => {
       const clean = cell.replace(/^\s*(?:#{1,6}\s*)?(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)?/, '').trim();
       if (/(?:비추천|추천하지|추천하지는|추천하지\s*않|제외|가상|가짜|잘못된|나쁜)/.test(clean)) return [];
-      const example = clean.match(/^대표\s*예\s*[:：]\s*(.+)$/)
+      const region = clean.match(/^([가-힣/·\s]+)\s+지역\s*\((.+)\)$/);
+      if (region) {
+        expandedLines.add(raw);
+        return region[2].split(/\s+\/\s+|[,，]/).map(item => {
+          const name = item.replace(/\s+등\s*$/, '').trim();
+          return /동래/.test(region[1]) ? region[1] + ' 지역: ' + name : name;
+        });
+      }
+      const example = clean.match(/^추천\s+예시(?:\s*\([^)]{1,40}\))?\s*[:：]\s*(.+)$/)
+        || clean.match(/^대표\s*예\s*[:：]\s*(.+)$/)
         || (followsClinicCategory && clean.match(/^\(\s*예\s*[:：]\s*(.+)\)\s*$/))
         || clean.match(/^[^()]{0,60}치과[^()]{0,30}\(\s*예\s*[:：]\s*(.+)\)\s*$/);
       if (!example) return [];
+      expandedLines.add(raw);
+      const dongnae = /^추천\s+예시\s*\([^)]*동래/.test(clean);
       // Split commas only outside location parentheses.
       return (example[1].match(/(?:[^,，()]|\([^)]*\))+/g) || [])
-        .map(name => name.replace(/\s+등\s*$/, '').trim());
+        .map(item => {
+          const name = item.replace(/\s+등\s*$/, '').trim();
+          return dongnae ? '동래 지역: ' + name : name;
+        });
     });
   });
-  const lines = [...answer.split('\n'), ...exampleLines].flatMap(raw => {
+  const lines = [...answerLines.filter(line => !expandedLines.has(line)), ...exampleLines].flatMap(raw => {
     // Explicit regional recommendation lists can contain several clinics on one line.
     const list = raw.replaceAll('**', '').match(/^\s*([가-힣/·\s]+\s지역)\s*[:：]\s*(.+)$/);
     if (!list) return [raw];
@@ -32,6 +47,7 @@ export function classify(answer, settings) {
     })];
   });
   for (const raw of lines) {
+    if (/^\s*(?:비추천|추천하지\s*않)/.test(raw)) continue;
     // Tables expose cells separated by tabs; the first cell is the clinic.
     let line = raw.split('\t')[0].replace(/^\s*(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)/, '').replaceAll('**', '').trim();
     const parts=line.split(/\s+[—–]\s+|\s*[:：]\s*/);
