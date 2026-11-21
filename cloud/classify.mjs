@@ -1,6 +1,6 @@
 // Conservative name extraction from standalone clinic headings/list items.
 // Full source text remains unchanged for later review in the dashboard.
-import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRecommendationNames, addressQualifiedNames, hasSeomyeonTableEntry} from '../radar-classification.js?v=20261114-records';
+import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRecommendationNames, addressQualifiedNames, hasSeomyeonTableEntry} from '../radar-classification.js?v=20261121-networktable';
 export function classify(answer, settings) {
   const hospitals = [];
   const qualified=[...addressQualifiedNames(answer),...branchQualifiedNames(answer),...networkRecommendationNames(answer)];
