@@ -13,7 +13,7 @@ export function isYebaNetworkName(name) {
   return names.length>1 && names.includes('서면점') && names.every(n=>/^[가-힣]{1,12}(?:점|지점)$/.test(n));
 }
 export function networkRecommendationNames(text) {
-  return [...new Set(String(text||'').split('\n').map(line=>line.replace(/^\s*(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)/,'').replaceAll('**','').trim()).filter(isYebaNetworkName))];
+  return [...new Set(String(text||'').split('\n').map(line=>line.split('\t')[0].replace(/^\s*(?:\d+[.)]\s*|[①-⑳❶-❿]\s*|[-*•]\s*)/,'').replaceAll('**','').trim()).filter(isYebaNetworkName))];
 }
 // Preserve branch labels that the rendered table places on a separate line.
 // Return source substrings, never inferred or invented clinic names.
