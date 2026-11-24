@@ -2,6 +2,51 @@
 export const defaultAliases = '서면 예바, 서면예바, 예바치과 서면점, YEBA Orthodontics Clinic, YEBA Othodontics';
 const defaults = {targetName:'예바치과교정과치과의원',aliases:defaultAliases};
 const normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().replace(/\s+/g,'');
+const formerClinic = /^(?:(?:부산)?서면(?:점|역)?[·:-]?)?예쁜미소바른이치과(?:의원)?(?:\(?서면(?:점|역|본점)?\)?)?$/;
+const otherBranch = /동래|해운대|센텀|덕천|온천동|명륜|동래로\s*25|센텀남대로\s*50/;
+const seomyeonLocation = /서면(?:역|점|에서|에\s*위치|에\s*있는|권|\s*(?:일대|인근|지역|근처)|$)|중앙대로\s*736(?:\D|$)|051[-.\s]*809[-.\s]*2861/;
+const regionCell = /^(?:부산(?:광역시)?\s*)?(?:부산진구\s*)?서면(?:역|권|권역|지역)?(?:\s*(?:인근|일대|근처))?$/;
+const listMarker = /^(?:#{1,6}\s+|(?:\d+[.)]|[①-⑳❶-❿]|[-*•])\s*)/;
+const sourceHeading = /^(?:참고\s*(?:자료|링크|문헌)|(?:관련\s*)?출처|관련\s*링크|sources?)\s*[:：]?\s*$/i;
+const notRecommended = /비추천|추천(?:하지|에서\s*제외)|추천\s*대상(?:이|에서)\s*(?:아|제외)|가상\s*(?:사례|예시)|추천\s*제외/;
+
+// The former name was shared across branches. Keep the original clinic cell and
+// match location to its own recommendation, never to a neighbouring clinic.
+export function formerSeomyeonNames(answer) {
+  const text = String(answer || '');
+  if (!normalize(text).includes('예쁜미소바른이치과')) return [];
+  const lines = text.replaceAll('**', '').split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const localList = !otherBranch.test(text) && lines.some(line =>
+    /서면\s*(?:일대|지역|권역)/.test(line) && /치과/.test(line) && /추천|대표/.test(line) && !/[?？]|해\s*줘/.test(line));
+  const names = new Set();
+  let inSources = false;
+  for (const [i, line] of lines.entries()) {
+    const entry = line.replace(listMarker, '').trim();
+    if (sourceHeading.test(entry)) { inSources = true; continue; }
+    if (/추천\s*(?:목록|리스트)|(?:주요|추천)\s*치과\s*(?:비교|및 특징)/.test(entry)) inSources = false;
+    if (inSources) continue;
+    const cells = entry.split(/\t|\|/).map(cell => cell.trim()).filter(Boolean);
+    const nameIndex = cells.findIndex(cell => formerClinic.test(normalize(cell)));
+    if (nameIndex !== 0 && !(nameIndex === 1 && regionCell.test(cells[0]))) continue;
+    const name = cells[nameIndex];
+    const next = lines[i + 1] || '';
+    const detail = /^(?:추천\s*이유|위치|주소|소재지|특징)\s*[:：]/.test(next) ? next : '';
+    const context = [entry, detail].join(' ');
+    if (otherBranch.test(context) || notRecommended.test(context) || (!listMarker.test(next) && notRecommended.test(next))) continue;
+    if (cells.length === 1 && !listMarker.test(line) && !detail) continue;
+    if (localList || normalize(name).includes('서면') || cells.some(cell => seomyeonLocation.test(cell)) || seomyeonLocation.test(detail)) {
+      names.add(name);
+    }
+  }
+  return [...names];
+}
+
+export function isFormerSeomyeonRecommendation(name, answer, settings=defaults) {
+  if (normalize(settings.targetName) !== normalize(defaults.targetName) || !formerClinic.test(normalize(name))) return false;
+  return formerSeomyeonNames(answer).some(label =>
+    normalize(label) === normalize(name) || /^예쁜미소바른이치과(?:의원)?$/.test(normalize(name)));
+}
+
 // Network recommendations include Seomyeon; a named other branch alone does not.
 export function isYebaNetworkName(name) {
   const value=normalize(name);
@@ -59,7 +104,9 @@ export function targetInText(text, settings=defaults) {
     .replace(/예바치과교정과의원/g,'');
   const safeAliases=normalize(settings.targetName)===normalize(defaults.targetName)?defaultAliases.split(','):[];
   return [settings.targetName,...safeAliases,...String(settings.aliases || '').split(',')]
-    .map(normalize).filter(alias=>alias&&!isExcludedHospital(alias)&&!['예바','yeba','예바치과','예바치과교정과'].includes(alias)).some(alias=>body.includes(alias));
+    .map(normalize).filter(alias=>alias&&!isExcludedHospital(alias)&&!['예바','yeba','예바치과','예바치과교정과'].includes(alias))
+    .filter(alias => normalize(settings.targetName) !== normalize(defaults.targetName) || !alias.includes('예쁜미소바른이치과'))
+    .some(alias=>body.includes(alias));
 }
 export function hasSeomyeonContext(answer) {
   const body=String(answer || '');
@@ -86,6 +133,7 @@ export function hasSeomyeonAddressEvidence(answer,hospitals) {
 }
 
 export function hasRecommendationEvidence(answer,hospitals,settings=defaults) {
+  if (hospitals.some(name => isFormerSeomyeonRecommendation(name, answer, settings))) return true;
   if (normalize(settings.targetName)===normalize(defaults.targetName)&&hasSeomyeonAddressEvidence(answer,hospitals)) return true;
   const contextual=normalize(settings.targetName)===normalize(defaults.targetName) && hasSeomyeonContext(answer)
     && hospitals.some(name=>normalize(name)==='예바치과교정과의원');

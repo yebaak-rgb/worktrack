@@ -1,9 +1,9 @@
 // Conservative name extraction from standalone clinic headings/list items.
 // Full source text remains unchanged for later review in the dashboard.
-import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRecommendationNames, addressQualifiedNames, hasSeomyeonTableEntry} from '../radar-classification.js?v=20261121-networktable';
+import {hasRecommendationEvidence, targetInText, branchQualifiedNames, networkRecommendationNames, addressQualifiedNames, hasSeomyeonTableEntry, formerSeomyeonNames} from '../radar-classification.js?v=20261124-former-name';
 export function classify(answer, settings) {
   const hospitals = [];
-  const qualified=[...addressQualifiedNames(answer),...branchQualifiedNames(answer),...networkRecommendationNames(answer)];
+  const qualified=[...addressQualifiedNames(answer),...branchQualifiedNames(answer),...networkRecommendationNames(answer),...formerSeomyeonNames(answer)];
   // Only expand explicit clinic examples in list headings/table cells, not prose mentions.
   const answerLines = answer.split('\n');
   let precedingLine = '';
@@ -53,7 +53,9 @@ export function classify(answer, settings) {
     const parts=line.split(/\s+[—–]\s+|\s*[:：]\s*/);
     const regionFirst=parts.length>1&&!/치과|orthodont|othodont|dental/i.test(parts[0])&&/치과|orthodont|othodont|dental/i.test(parts[1]);
     const regionalHeading=regionFirst&&/동래/.test(parts[0])?line:null;
-    line = (regionFirst?parts[1]:parts[0]).replace(/\s+\|\s+.*$/,'').replace(/\s*\(([^)]*)\)\s*$/, (match, label) => /동래/.test(label) ? match : '').trim();
+    const clinicHeading = (regionFirst ? parts[1] : parts[0]).replace(/\s+\|\s+.*$/,'');
+    const formerClinicHeading = /^예쁜미소바른이치과(?:의원)?\(/.test(clinicHeading.replace(/\s+/g,''));
+    line = clinicHeading.replace(/\s*\(([^)]*)\)\s*$/, (match, label) => /동래/.test(label) || formerClinicHeading ? match : '').trim();
     // Map cards can append translated names after the Korean clinic/branch.
     if (/^[가-힣]/.test(line) && line.includes('치과')) line = line.replace(/(치과[^A-Za-z]*?)\s+[A-Za-z].*$/, '$1').trim();
     if (line.length > 70 || !/^[가-힣A-Za-z0-9·&()\s]+$/.test(line)) continue;

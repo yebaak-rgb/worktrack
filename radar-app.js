@@ -1,8 +1,8 @@
-import {classify} from './cloud/classify.mjs?v=20261121-networktable';
-import {storageRequest} from './radar-storage.js?v=20261121-networktable';
-import {hasRecommendationEvidence, targetInText, isExcludedHospital, defaultAliases, isClassificationReview, collectionLabel} from './radar-classification.js?v=20261121-networktable';
-import {isOurRecommendation} from './radar-analytics.js?v=20261121-networktable';
-import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261121-networktable';
+import {classify} from './cloud/classify.mjs?v=20261124-former-name';
+import {storageRequest} from './radar-storage.js?v=20261124-former-name';
+import {hasRecommendationEvidence, defaultAliases, isClassificationReview, collectionLabel} from './radar-classification.js?v=20261124-former-name';
+import {isOurRecommendation, canonicalHospital} from './radar-analytics.js?v=20261124-former-name';
+import {renderMonthly, initializeMonthly} from './radar-monthly-ui.js?v=20261124-former-name';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const STORAGE_KEY = 'yeba-ai-radar-v2';
@@ -161,7 +161,7 @@ function renderResponses() {
     const stamp = r.savedAt && !Number.isNaN(Date.parse(r.savedAt)) ? `저장 ${new Date(r.savedAt).toLocaleTimeString('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit'})}` : '';
     const method = r.collectionMethod || (String(r.id).startsWith('browser-') ? '비로그인 웹' : 'API');
     let source = ''; try { const url = new URL(r.sourceUrl); if (['https:','http:'].includes(url.protocol)) source = `<a href="${escapeHTML(url.href)}" target="_blank" rel="noopener noreferrer">원문 페이지 ↗</a>`; } catch {}
-    return `<article class="response-card"><header><i class="ai-icon ${p.cls}">${p.icon}</i><strong>${escapeHTML(r.ai)}</strong><time>${escapeHTML(stamp)}</time></header><p>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · ${escapeHTML(method)} · ${collectionLabel(r)}</p><p>${escapeHTML(r.answer)}</p><details><summary>응답 전문 · 미수집 사유</summary><p class="response-full">${escapeHTML(r.answer)}</p>${source}</details><div class="hospital-tags">${r.hospitals.map(h=>`<span class="${!isExcludedHospital(h)&&targetInText(h,state)?'ours':''}">${escapeHTML(h)}</span>`).join('')}</div></article>`;
+    return `<article class="response-card"><header><i class="ai-icon ${p.cls}">${p.icon}</i><strong>${escapeHTML(r.ai)}</strong><time>${escapeHTML(stamp)}</time></header><p>질문 ${Math.max(1,state.questions.indexOf(r.question)+1)} · ${escapeHTML(method)} · ${collectionLabel(r)}</p><p>${escapeHTML(r.answer)}</p><details><summary>응답 전문 · 미수집 사유</summary><p class="response-full">${escapeHTML(r.answer)}</p>${source}</details><div class="hospital-tags">${r.hospitals.map(h=>`<span class="${isOurRecommendation(r,state)&&canonicalHospital(h,state,r.answer)==='예바치과'?'ours':''}">${escapeHTML(h)}</span>`).join('')}</div></article>`;
   }).join('') || '<p class="muted">아직 오늘 수집한 응답이 없습니다.</p>';
 }
 function renderHistoryOriginal(container, answer) {

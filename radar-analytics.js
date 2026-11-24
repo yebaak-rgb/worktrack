@@ -1,4 +1,4 @@
-import {targetInText, hasRecommendationEvidence, isExcludedHospital, isClassificationReview, hasSeomyeonContext} from './radar-classification.js?v=20261121-networktable';
+import {targetInText, hasRecommendationEvidence, isExcludedHospital, isClassificationReview, hasSeomyeonContext, isFormerSeomyeonRecommendation} from './radar-classification.js?v=20261124-former-name';
 
 export const AIS = ['ChatGPT', 'Gemini'];
 export const percent = (n, d) => d ? n / d * 100 : null;
@@ -10,6 +10,7 @@ export function shiftMonth(month, offset) {
 export function canonicalHospital(name, settings, answer='') {
   const value = String(name || '').normalize('NFKC').trim();
   if (!value) return '';
+  if (isFormerSeomyeonRecommendation(value, answer, settings)) return '예바치과';
   if (value.replace(/\s+/g,'')==='예바치과교정과의원' && hasSeomyeonContext(answer) && hasRecommendationEvidence(answer,[value],settings)) return '예바치과';
   if (isExcludedHospital(value)) return '동래예바치과';
   if (targetInText(value, settings)) return '예바치과';
